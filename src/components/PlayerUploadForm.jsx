@@ -43,6 +43,7 @@ function targetsFromSnapshot(snapshot, baseTargets = fallbackTargets) {
 }
 
 export default function PlayerUploadForm({ profile }) {
+  const [teamIdentity, setTeamIdentity] = useState({ teamCode: profile.teamCode, teamName: profile.teamName });
   const [targets, setTargets] = useState(socketService.getTargets() || fallbackTargets);
   const [player, setPlayer] = useState({ playerName: profile.username, placements: ["", ""], scores: ["", "", ""] });
   const [screenshots, setScreenshots] = useState({ dm: [null, null], range: [null, null, null] });
@@ -166,8 +167,11 @@ export default function PlayerUploadForm({ profile }) {
         .then(() => setCalendarRefreshKey((key) => key + 1))
         .catch(() => {});
     });
+    const removeIdentity = socketService.on("team:identity", (value) => {
+      if (value?.teamCode && value?.teamName) setTeamIdentity(value);
+    });
     socketService.connect().emit("player:join");
-    return () => { removeCurrent(); removeUpdated(); removeDeleted(); };
+    return () => { removeCurrent(); removeUpdated(); removeDeleted(); removeIdentity(); };
   }, [profile.username, selectedDate]);
 
   const updateArray = (field, index, value) => {
@@ -307,7 +311,7 @@ export default function PlayerUploadForm({ profile }) {
 
   return <section className="panel player-panel">
     <header className="player-intake-head">
-      <div className="player-intake-copy"><div className="eyebrow">PLAYER INTAKE / LIVE TARGETS</div><h1>PREMATCH<br /><span>TRACKER</span></h1><p className="lede">Log your warm-up proof before queue opens.</p></div>
+      <div className="player-intake-copy"><div className="eyebrow">PLAYER INTAKE / LIVE TARGETS</div><div className="player-team-name"><span>ROSTER</span><strong>{teamIdentity.teamName}</strong><small>{teamIdentity.teamCode}</small></div><h1>PREMATCH<br /><span>TRACKER</span></h1><p className="lede">Log your warm-up proof before queue opens.</p></div>
       <SubmissionCalendar
         playerName={player.playerName}
         refreshKey={calendarRefreshKey}

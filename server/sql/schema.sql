@@ -8,12 +8,30 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS team_code VARCHAR(4);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS team_name VARCHAR(64);
+
+UPDATE users
+SET team_name = LEFT(username || '''s Team', 64)
+WHERE role = 'manager'
+  AND (team_name IS NULL OR BTRIM(team_name) = '');
 
 DO $$
 BEGIN
   ALTER TABLE users
     ADD CONSTRAINT users_team_code_format
     CHECK (team_code IS NULL OR team_code ~ '^[A-Z0-9]{4}$');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  ALTER TABLE users
+    ADD CONSTRAINT users_team_name_assignment
+    CHECK (
+      (role = 'manager' AND team_name IS NOT NULL AND BTRIM(team_name) <> '')
+      OR (role = 'player' AND team_name IS NULL)
+    );
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;

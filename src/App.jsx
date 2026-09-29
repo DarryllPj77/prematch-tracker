@@ -76,7 +76,7 @@ export default function App() {
     <nav className="topbar">
       <div className="brand">PREMATCH <b>/</b> TRACKER</div>
       <div className="session-controls">
-        <div className="session-identity"><span>{profile.role}</span><strong>{profile.username}</strong></div>
+        <div className="session-identity"><span>{profile.role} / {profile.teamName}</span><strong>{profile.username}</strong></div>
         <button className="session-logout" type="button" onClick={logout}>LOG OUT / CHANGE USER</button>
       </div>
     </nav>

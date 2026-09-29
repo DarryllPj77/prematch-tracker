@@ -39,8 +39,8 @@ describe("database-backed authentication", () => {
         user.team_code = teamCode;
         return user;
       },
-      async createUser({ username, pinHash, role, teamCode }) {
-        const user = { id: nextId++, username, pin_hash: pinHash, role, team_code: teamCode };
+      async createUser({ username, pinHash, role, teamCode, teamName }) {
+        const user = { id: nextId++, username, pin_hash: pinHash, role, team_code: teamCode, team_name: role === "manager" ? teamName : null };
         users.set(username.toLowerCase(), user);
         return user;
       },
@@ -51,12 +51,14 @@ describe("database-backed authentication", () => {
       managerSignupCode: "manager-only",
     });
 
-    const manager = await auth.register({ username: "Coach", pin: "4321", role: "manager", managerCode: "manager-only" });
+    const manager = await auth.register({ username: "Coach", pin: "4321", role: "manager", managerCode: "manager-only", teamName: "Paper Rex" });
     assert.match(manager.teamCode, /^[A-Z0-9]{4}$/);
+    assert.equal(manager.teamName, "Paper Rex");
 
     const player = await auth.register({ username: "Momo", pin: "1234", role: "player", teamCode: manager.teamCode });
     assert.equal(player.role, "player");
     assert.equal(player.teamCode, manager.teamCode);
+    assert.equal(player.teamName, "Paper Rex");
     assert.notEqual(users.get("momo").pin_hash, "1234");
     assert.equal((await auth.login({ username: "momo", pin: "1234" })).teamCode, manager.teamCode);
     assert.equal(auth.verifyToken(player.token).teamCode, manager.teamCode);
@@ -70,6 +72,11 @@ describe("database-backed authentication", () => {
     await assert.rejects(
       auth.register({ username: "Boss", pin: "4321", role: "manager", managerCode: "wrong" }),
       (error) => error.code === "INVALID_MANAGER_CODE",
+    );
+
+    await assert.rejects(
+      auth.register({ username: "No Team", pin: "4321", role: "manager", managerCode: "manager-only", teamName: "" }),
+      (error) => error.code === "INVALID_TEAM_NAME",
     );
 
     users.get("momo").team_code = null;

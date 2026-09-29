@@ -118,19 +118,19 @@ export class PostgresRepository {
     );
   }
 
-  async createUser({ username, pinHash, role, teamCode }) {
+  async createUser({ username, pinHash, role, teamCode, teamName }) {
     const result = await this.pool.query(
-      `INSERT INTO users (username, normalized_username, pin_hash, role, team_code)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, username, role, team_code, created_at`,
-      [username, normalizeUsername(username), pinHash, role, normalizeTeamCode(teamCode)],
+      `INSERT INTO users (username, normalized_username, pin_hash, role, team_code, team_name)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, username, role, team_code, team_name, created_at`,
+      [username, normalizeUsername(username), pinHash, role, normalizeTeamCode(teamCode), role === "manager" ? String(teamName || "").trim() : null],
     );
     return result.rows[0];
   }
 
   async findUserByUsername(username) {
     const result = await this.pool.query(
-      `SELECT id, username, normalized_username, pin_hash, role, team_code, created_at
+      `SELECT id, username, normalized_username, pin_hash, role, team_code, team_name, created_at
        FROM users
        WHERE normalized_username = $1`,
       [normalizeUsername(username)],
@@ -140,7 +140,7 @@ export class PostgresRepository {
 
   async findUserById(userId) {
     const result = await this.pool.query(
-      `SELECT id, username, normalized_username, pin_hash, role, team_code, created_at
+      `SELECT id, username, normalized_username, pin_hash, role, team_code, team_name, created_at
        FROM users
        WHERE id = $1`,
       [userId],
@@ -150,7 +150,7 @@ export class PostgresRepository {
 
   async findManagerByTeamCode(teamCode) {
     const result = await this.pool.query(
-      `SELECT id, username, role, team_code, created_at
+      `SELECT id, username, role, team_code, team_name, created_at
        FROM users
        WHERE role = 'manager' AND team_code = $1`,
       [normalizeTeamCode(teamCode)],

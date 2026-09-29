@@ -10,6 +10,7 @@ export default function Login({ onLogin }) {
   const [role, setRole] = useState("");
   const [managerCode, setManagerCode] = useState("");
   const [teamCode, setTeamCode] = useState("");
+  const [teamName, setTeamName] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const isRegister = mode === "register";
@@ -20,6 +21,7 @@ export default function Login({ onLogin }) {
     setRole("");
     setManagerCode("");
     setTeamCode("");
+    setTeamName("");
     setError("");
   };
 
@@ -37,12 +39,16 @@ export default function Login({ onLogin }) {
       setError("ENTER A VALID 4-CHARACTER TEAM INVITE CODE.");
       return;
     }
+    if (isRegister && role === "manager" && (!teamName.trim() || teamName.trim().length > 64)) {
+      setError("ENTER A PREMIER TEAM NAME BETWEEN 1 AND 64 CHARACTERS.");
+      return;
+    }
 
     setSaving(true);
     setError("");
     try {
       const profile = isRegister
-        ? await registerUser({ username, pin, role, managerCode, teamCode })
+        ? await registerUser({ username, pin, role, managerCode, teamCode, teamName })
         : await loginUser({ username, pin });
       onLogin(await saveLocalProfile(profile));
     } catch (submissionError) {
@@ -54,6 +60,8 @@ export default function Login({ onLogin }) {
         setError("INVALID MANAGER REGISTRATION CODE.");
       } else if (submissionError?.code === "INVALID_TEAM_CODE") {
         setError("INVALID TEAM CODE.");
+      } else if (submissionError?.code === "INVALID_TEAM_NAME") {
+        setError("ENTER A PREMIER TEAM NAME BETWEEN 1 AND 64 CHARACTERS.");
       } else if (submissionError?.code === "TEAM_ASSIGNMENT_REQUIRED") {
         setError("THIS LEGACY ACCOUNT NEEDS A TEAM. REGISTER AGAIN WITH THE SAME CALLSIGN, PIN, AND A TEAM INVITE CODE.");
       } else if (submissionError?.code === "SERVER_UNAVAILABLE") {
@@ -91,7 +99,10 @@ export default function Login({ onLogin }) {
           </button>
         </fieldset>}
 
-        {isRegister && role === "manager" && <label>MANAGER REGISTRATION CODE<input type="password" autoComplete="off" value={managerCode} onChange={(event) => setManagerCode(event.target.value)} placeholder="Enter deployment manager code" /></label>}
+        {isRegister && role === "manager" && <>
+          <label>PREMIER TEAM NAME<input type="text" autoComplete="organization" maxLength="64" value={teamName} onChange={(event) => setTeamName(event.target.value)} placeholder="e.g. Paper Rex" required /></label>
+          <label>MANAGER REGISTRATION CODE<input type="password" autoComplete="off" value={managerCode} onChange={(event) => setManagerCode(event.target.value)} placeholder="Enter deployment manager code" /></label>
+        </>}
         {isRegister && role === "player" && <label>TEAM INVITE CODE<input type="text" autoComplete="off" inputMode="text" maxLength="4" pattern="[A-Za-z0-9]{4}" value={teamCode} onChange={(event) => setTeamCode(event.target.value.replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 4))} placeholder="e.g. K9X2" /></label>}
 
         {error && <div className="login-error" role="alert">{error}</div>}

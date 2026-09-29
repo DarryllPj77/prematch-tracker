@@ -25,12 +25,29 @@ function validateCredentials({ username, pin }) {
   return { username: normalizedUsername, pin: normalizedPin };
 }
 
+function validateTeamName(value) {
+  const teamName = String(value || "").trim();
+  if (!teamName || teamName.length > 64) {
+    throw createAuthError("Premier Team Name must contain between 1 and 64 characters.", "INVALID_TEAM_NAME");
+  }
+  return teamName;
+}
+
 export function createAuthService({ repository, jwtSecret, managerSignupCode }) {
   if (!jwtSecret || jwtSecret.length < 32) {
     throw new Error("JWT_SECRET must contain at least 32 characters.");
   }
 
-  const issueSession = (user) => {
+  const getTeamName = async (teamCode) => {
+    const manager = await repository.findManagerByTeamCode(teamCode);
+    const teamName = String(manager?.team_name || manager?.teamName || "").trim();
+    if (!teamName) {
+      throw createAuthError("This team does not have a Premier Team Name.", "TEAM_ASSIGNMENT_REQUIRED", 403);
+    }
+    return teamName;
+  };
+
+  const issueSession = async (user) => {
     const teamCode = normalizeTeamCode(user.team_code || user.teamCode);
     if (!isValidTeamCode(teamCode)) {
       throw createAuthError(
@@ -39,7 +56,8 @@ export function createAuthService({ repository, jwtSecret, managerSignupCode }) 
         403,
       );
     }
-    const profile = { id: Number(user.id), username: user.username, role: user.role, teamCode };
+    const teamName = await getTeamName(teamCode);
+    const profile = { id: Number(user.id), username: user.username, role: user.role, teamCode, teamName };
     const token = jwt.sign(profile, jwtSecret, { subject: String(user.id), expiresIn: "7d" });
     return { ...profile, token };
   };
@@ -49,7 +67,7 @@ export function createAuthService({ repository, jwtSecret, managerSignupCode }) 
     if (!payload?.sub || !payload?.username || !["player", "manager"].includes(payload.role) || !isValidTeamCode(payload.teamCode)) {
       throw createAuthError("Invalid session.", "INVALID_SESSION", 401);
     }
-    return { id: Number(payload.sub), username: payload.username, role: payload.role, teamCode: normalizeTeamCode(payload.teamCode) };
+    return { id: Number(payload.sub), username: payload.username, role: payload.role, teamCode: normalizeTeamCode(payload.teamCode), teamName: String(payload.teamName || "").trim() };
   };
 
   const verifySession = async (token) => {
@@ -64,17 +82,19 @@ export function createAuthService({ repository, jwtSecret, managerSignupCode }) 
     ) {
       throw createAuthError("This session is no longer assigned to that team.", "INVALID_SESSION", 401);
     }
-    return { id: Number(user.id), username: user.username, role: user.role, teamCode: currentTeamCode };
+    const teamName = await getTeamName(currentTeamCode);
+    return { id: Number(user.id), username: user.username, role: user.role, teamCode: currentTeamCode, teamName };
   };
 
   return {
-    async register({ username, pin, role, managerCode, teamCode }) {
+    async register({ username, pin, role, managerCode, teamCode, teamName }) {
       const credentials = validateCredentials({ username, pin });
       const normalizedRole = role === "manager" ? "manager" : role === "player" ? "player" : "";
       if (!normalizedRole) throw createAuthError("A valid role is required.", "INVALID_ROLE");
       if (normalizedRole === "manager" && (!managerSignupCode || managerCode !== managerSignupCode)) {
         throw createAuthError("The manager registration code is invalid.", "INVALID_MANAGER_CODE", 403);
       }
+      const requestedTeamName = normalizedRole === "manager" ? validateTeamName(teamName) : null;
 
       const requestedTeamCode = normalizeTeamCode(teamCode);
       if (normalizedRole === "player") {
@@ -105,6 +125,7 @@ export function createAuthService({ repository, jwtSecret, managerSignupCode }) 
             pinHash,
             role: normalizedRole,
             teamCode: assignedTeamCode,
+            teamName: requestedTeamName,
           });
           return issueSession(user);
         } catch (error) {

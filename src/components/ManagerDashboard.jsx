@@ -84,6 +84,7 @@ function formatSubmissionTime(timestamp) {
 }
 
 export default function ManagerDashboard({ profile }) {
+  const [teamIdentity, setTeamIdentity] = useState({ teamCode: profile.teamCode, teamName: profile.teamName });
   const [targets, setTargets] = useState(socketService.getTargets() || fallbackTargets);
   const [submissions, setSubmissions] = useState([]);
   const [registeredPlayers, setRegisteredPlayers] = useState([]);
@@ -121,6 +122,9 @@ export default function ManagerDashboard({ profile }) {
     };
     const connectionError = () => setHistoryError(true);
     const presence = (players) => setOnlinePlayers(Array.isArray(players) ? players : []);
+    const identity = (value) => {
+      if (value?.teamCode && value?.teamName) setTeamIdentity(value);
+    };
     const deleted = (value) => {
       setSubmissions((items) => items.filter((item) => item.id !== value.submissionId));
       setSelectedSubmissionId((id) => id === value.submissionId ? "" : id);
@@ -134,10 +138,11 @@ export default function ManagerDashboard({ profile }) {
     const removeHistorySnapshot = socketService.on("manager:historySnapshot", historySnapshot);
     const removeRosterSnapshot = socketService.on("manager:rosterSnapshot", rosterSnapshot);
     const removePresence = socketService.on("manager:playersOnline", presence);
+    const removeIdentity = socketService.on("team:identity", identity);
     const removeDeleted = socketService.on("manager:submissionDeleted", deleted);
     const removeConnectionError = socketService.on("connect_error", connectionError);
     socketService.connect().emit("manager:join");
-    return () => { removeCurrent(); removeUpdated(); removeIncoming(); removeHistorySnapshot(); removeRosterSnapshot(); removePresence(); removeDeleted(); removeConnectionError(); };
+    return () => { removeCurrent(); removeUpdated(); removeIncoming(); removeHistorySnapshot(); removeRosterSnapshot(); removePresence(); removeIdentity(); removeDeleted(); removeConnectionError(); };
   }, []);
 
   const roster = useMemo(() => {
@@ -229,8 +234,9 @@ export default function ManagerDashboard({ profile }) {
 
   const copyTeamCode = async () => {
     try {
-      await navigator.clipboard.writeText(profile.teamCode);
+      await navigator.clipboard.writeText(teamIdentity.teamCode);
       setTeamCodeCopied(true);
+      window.setTimeout(() => setTeamCodeCopied(false), 1600);
     } catch {
       setTeamCodeCopied(false);
     }
@@ -257,11 +263,10 @@ export default function ManagerDashboard({ profile }) {
     <header className="dashboard-head">
       <div><div className="eyebrow">COMMAND CENTER / LIVE RELAY</div><h1>MANAGER <span>FEED</span></h1></div>
       <div className="manager-head-actions">
-        <div className="team-code-card">
-          <span>TEAM INVITE CODE</span>
-          <strong>{profile.teamCode}</strong>
-          <button type="button" onClick={copyTeamCode}>{teamCodeCopied ? "COPIED" : "COPY CODE"}</button>
-        </div>
+        <div className="team-name-card"><span>PREMIER TEAM</span><strong>{teamIdentity.teamName}</strong></div>
+        <button className="team-code-card" type="button" onClick={copyTeamCode} title="Copy team invite code">
+          <span>INVITE CODE</span><strong>{teamIdentity.teamCode}</strong><small>{teamCodeCopied ? "COPIED!" : "CLICK TO COPY"}</small>
+        </button>
         <button className="btn-ghost" type="button" onClick={() => setSettingsOpen(true)}>TARGET SETTINGS</button>
       </div>
     </header>

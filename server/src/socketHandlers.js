@@ -87,6 +87,7 @@ export function registerSocketHandlers(io, repository) {
 
   io.on("connection", async (socket) => {
     const profile = socket.data.profile;
+    socket.emit("team:identity", { teamCode: profile.teamCode, teamName: profile.teamName });
     try {
       socket.emit("targets:current", await repository.getTargets(profile.teamCode));
     } catch (error) {

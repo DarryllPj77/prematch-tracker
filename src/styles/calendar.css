@@ -9,6 +9,31 @@
   min-width: 0;
 }
 
+.player-team-name {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  gap: .2rem .65rem;
+  margin-top: .85rem;
+  padding: .55rem .7rem;
+  border-left: 2px solid var(--cyan);
+  background: rgba(56, 217, 255, .07);
+}
+
+.player-team-name span,
+.player-team-name small {
+  color: var(--muted);
+  font-size: .48rem;
+  letter-spacing: .1em;
+}
+
+.player-team-name strong {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+  color: var(--ink);
+  font-size: 1rem;
+}
+
 .submission-calendar {
   width: 100%;
   padding: 1rem;
