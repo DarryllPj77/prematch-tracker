@@ -48,6 +48,16 @@
   font-size: .65rem;
 }
 
+.submission-requirements-note {
+  margin: 0 0 .85rem;
+  padding: .6rem .75rem;
+  border-left: 2px solid var(--cyan);
+  background: rgba(0, 229, 255, .06);
+  color: var(--muted);
+  font-size: .6rem;
+  line-height: 1.6;
+}
+
 .submission-drill-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));

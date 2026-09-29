@@ -18,15 +18,23 @@ function normalizeSubmission(submission) {
   const timestamp = submission.submittedAt || submission.timestamp || submission.receivedAt || new Date().toISOString();
   const dmResults = submission.dmResults || submission.dm?.placements || [];
   const rangeResults = submission.rangeResults || submission.range?.scores || [];
-  const passed = typeof submission.passed === "boolean"
+  const storedPassed = typeof submission.passed === "boolean"
     ? submission.passed
-    : Boolean(submission.dm?.passed && submission.range?.passed);
+    : typeof submission.isAttended === "boolean"
+      ? submission.isAttended
+      : Boolean(submission.dm?.passed && submission.range?.passed);
   const playerName = submission.playerName?.trim() || "UNKNOWN PLAYER";
   const playerId = submission.playerId || playerName.toLowerCase();
   const date = submission.date || toLocalDateKey(timestamp);
+  const normalized = {
+    ...submission,
+    dmResults,
+    rangeResults,
+  };
+  const attendance = evaluateAttendance(normalized);
 
   return {
-    ...submission,
+    ...normalized,
     id: submission.submissionId || `${String(playerId).toLowerCase()}:${date}`,
     playerId,
     playerName,
@@ -36,7 +44,7 @@ function normalizeSubmission(submission) {
     screenshotKeys: submission.screenshotKeys || [],
     submittedAt: timestamp,
     receivedAt: submission.receivedAt || timestamp,
-    passed,
+    passed: attendance.hasRequirementsSnapshot ? attendance.isAttended : storedPassed,
   };
 }
 
@@ -63,6 +71,7 @@ function mergeSubmissions(items) {
       dmResults: primary.dmResults.length ? primary.dmResults : secondary.dmResults || [],
       rangeResults: primary.rangeResults.length ? primary.rangeResults : secondary.rangeResults || [],
       screenshotKeys: primary.screenshotKeys.length ? primary.screenshotKeys : secondary.screenshotKeys || [],
+      requirementsSnapshot: primary.requirementsSnapshot || secondary.requirementsSnapshot,
     });
   });
   return [...merged.values()].sort((left, right) => right.submittedAt.localeCompare(left.submittedAt));
@@ -148,7 +157,7 @@ export default function ManagerDashboard() {
 
   const selectedSubmission = submissions.find((submission) => submission.id === selectedSubmissionId);
   const selectedAttendance = selectedSubmission
-    ? evaluateAttendance({ dmResults: selectedSubmission.dmResults, rangeResults: selectedSubmission.rangeResults, targets })
+    ? evaluateAttendance(selectedSubmission)
     : null;
 
   const selectPlayer = (playerName) => {
@@ -253,6 +262,10 @@ export default function ManagerDashboard() {
             <span>EXACT TIMESTAMP</span>
             <strong>{formatSubmissionTime(selectedSubmission.submittedAt)}</strong>
           </div>
+          <p className="submission-requirements-note">
+            Evaluated against: Top {selectedAttendance.requirementsSnapshot.topPlacementLimit} placement, {selectedAttendance.requirementsSnapshot.dmRequired} DM matches, {selectedAttendance.requirementsSnapshot.rangeRequired} Range rounds, minimum Range score {selectedAttendance.requirementsSnapshot.rangeMinScore}.
+            {!selectedAttendance.hasRequirementsSnapshot && " Legacy record: an original settings snapshot was unavailable, so frozen legacy rules inferred from the saved record are shown."}
+          </p>
           <div className="submission-drill-list">
             {selectedAttendance.drills.map((drill) => <article className={`submission-drill-card tier-${drill.badgeColor}${drill.needsResubmit ? " needs-resubmit" : ""}`} key={`${drill.type}-${drill.index}`}>
               <span className="drill-name">{drill.name}</span>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { evaluateAttendance, formatDrillScore } from "../../shared/attendanceValidation.js";
+import { createRequirementsSnapshot, evaluateAttendance, formatDrillScore, getRequirementsSnapshot } from "../../shared/attendanceValidation.js";
 import { extractScoreFromImage } from "../services/mlStub.js";
 import { deleteDailyLog, getLogsForPlayer, getSubmissionForPlayerDate, saveScreenshot, saveSubmissionData } from "../services/storageService.js";
 import * as socketService from "../services/socketService.js";
@@ -24,6 +24,21 @@ function createRetakeState(targets, value = false) {
 
 function resizePreserving(values, length, fallback) {
   return Array.from({ length }, (_, index) => values?.[index] ?? fallback);
+}
+
+function targetsFromSnapshot(snapshot, baseTargets = fallbackTargets) {
+  return {
+    dm: {
+      ...baseTargets.dm,
+      matchesRequired: snapshot.dmRequired,
+      placementLimit: snapshot.topPlacementLimit,
+    },
+    range: {
+      ...baseTargets.range,
+      roundsRequired: snapshot.rangeRequired,
+      minScore: snapshot.rangeMinScore,
+    },
+  };
 }
 
 export default function PlayerUploadForm({ profile }) {
@@ -51,8 +66,8 @@ export default function PlayerUploadForm({ profile }) {
         const activeTargets = socketService.getTargets() || fallbackTargets;
         if (!active) return;
 
-        setTargets(activeTargets);
         if (!selectedSubmission) {
+          setTargets(activeTargets);
           setPlayer({
             playerName,
             placements: Array(activeTargets.dm.matchesRequired).fill(""),
@@ -74,17 +89,19 @@ export default function PlayerUploadForm({ profile }) {
           return;
         }
 
-        const placements = resizePreserving(selectedSubmission.dm?.placements, activeTargets.dm.matchesRequired, "");
-        const scores = resizePreserving(selectedSubmission.range?.scores, activeTargets.range.roundsRequired, "");
+        const submissionTargets = targetsFromSnapshot(getRequirementsSnapshot(selectedSubmission), activeTargets);
+        const placements = resizePreserving(selectedSubmission.dm?.placements, submissionTargets.dm.matchesRequired, "");
+        const scores = resizePreserving(selectedSubmission.range?.scores, submissionTargets.range.roundsRequired, "");
         const fallbackKeys = selectedSubmission.screenshotKeys || [];
-        const dmScreenshots = resizePreserving(selectedSubmission.screenshotSlots?.dm || fallbackKeys.slice(0, activeTargets.dm.matchesRequired), activeTargets.dm.matchesRequired, null);
-        const rangeScreenshots = resizePreserving(selectedSubmission.screenshotSlots?.range || fallbackKeys.slice(activeTargets.dm.matchesRequired), activeTargets.range.roundsRequired, null);
+        const dmScreenshots = resizePreserving(selectedSubmission.screenshotSlots?.dm || fallbackKeys.slice(0, submissionTargets.dm.matchesRequired), submissionTargets.dm.matchesRequired, null);
+        const rangeScreenshots = resizePreserving(selectedSubmission.screenshotSlots?.range || fallbackKeys.slice(submissionTargets.dm.matchesRequired), submissionTargets.range.roundsRequired, null);
 
+        setTargets(submissionTargets);
         setPlayer({ playerName, placements, scores });
         setScreenshots({ dm: dmScreenshots, range: rangeScreenshots });
-        setFileInputKeys(createRetakeState(activeTargets, 0));
-        setRetaking(createRetakeState(activeTargets));
-        setSubmittedAttendance(evaluateAttendance({ dmResults: placements, rangeResults: scores, targets: activeTargets }));
+        setFileInputKeys(createRetakeState(submissionTargets, 0));
+        setRetaking(createRetakeState(submissionTargets));
+        setSubmittedAttendance(evaluateAttendance(selectedSubmission));
         setMessage(selectedDate < toLocalDateKey(new Date())
           ? `Viewing ${selectedDate} in read-only mode.`
           : "Today's submission restored from this device.");
@@ -101,6 +118,7 @@ export default function PlayerUploadForm({ profile }) {
 
   useEffect(() => {
     const update = (next) => {
+      if (selectedDate !== toLocalDateKey(new Date())) return;
       setTargets(next);
       setPlayer((current) => ({
         ...current,
@@ -139,7 +157,7 @@ export default function PlayerUploadForm({ profile }) {
     socketService.connect().emit("player:join");
     sendHistorySnapshot();
     return () => { removeCurrent(); removeUpdated(); removeHistoryRequest(); removeDeleted(); };
-  }, [profile.username]);
+  }, [profile.username, selectedDate]);
 
   const updateArray = (field, index, value) => {
     setPlayer((current) => ({
@@ -180,10 +198,11 @@ export default function PlayerUploadForm({ profile }) {
     setMessage(`Re-take ${type === "dm" ? "Deathmatch" : "Range"} drill ${index + 1}, then submit again.`);
   };
 
+  const activeRequirementsSnapshot = createRequirementsSnapshot(targets);
   const currentAttendance = evaluateAttendance({
     dmResults: player.placements,
     rangeResults: player.scores,
-    targets,
+    requirementsSnapshot: activeRequirementsSnapshot,
   });
 
   const submit = async (event) => {
@@ -197,7 +216,12 @@ export default function PlayerUploadForm({ profile }) {
       return;
     }
 
-    const attendance = evaluateAttendance({ dmResults: player.placements, rangeResults: player.scores, targets });
+    const requirementsSnapshot = createRequirementsSnapshot(targets);
+    const attendance = evaluateAttendance({
+      dmResults: player.placements,
+      rangeResults: player.scores,
+      requirementsSnapshot,
+    });
     const dmDrills = attendance.drills.filter((drill) => drill.type === "dm");
     const rangeDrills = attendance.drills.filter((drill) => drill.type === "range");
     const date = selectedDate;
@@ -209,6 +233,7 @@ export default function PlayerUploadForm({ profile }) {
       date,
       dmResults: player.placements.map(Number),
       rangeResults: player.scores.map(Number),
+      requirementsSnapshot,
       screenshotKeys: [...screenshots.dm, ...screenshots.range].filter(Boolean),
       timestamp: new Date().toISOString(),
     };
@@ -222,6 +247,7 @@ export default function PlayerUploadForm({ profile }) {
         dm: { matchesPlayed: payload.dmResults.length, placements: payload.dmResults, passed: dmDrills.every((drill) => !drill.needsResubmit) },
         range: { roundsPlayed: payload.rangeResults.length, scores: payload.rangeResults, passed: rangeDrills.every((drill) => !drill.needsResubmit) },
         isAttended: attendance.isAttended,
+        requirementsSnapshot,
         screenshotKeys: payload.screenshotKeys,
         screenshotSlots: screenshots,
         submittedAt: payload.timestamp,

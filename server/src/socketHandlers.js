@@ -9,12 +9,8 @@ function getSubmissionId(submission = {}) {
   return submission.submissionId || `${playerId}:${date}`;
 }
 
-function isPassing(payload, targets) {
-  return evaluateAttendance({
-    dmResults: payload.dmResults,
-    rangeResults: payload.rangeResults,
-    targets,
-  }).isAttended;
+function isPassing(payload) {
+  return evaluateAttendance(payload).isAttended;
 }
 
 export function registerSocketHandlers(io) {
@@ -76,7 +72,7 @@ export function registerSocketHandlers(io) {
         ...payload,
         playerName: socket.data.profile.username,
         submissionId: getSubmissionId(payload),
-        passed: isPassing(payload, targets),
+        passed: isPassing(payload),
         receivedAt: new Date().toISOString(),
       };
       const existingIndex = recentSubmissions.findIndex((item) => getSubmissionId(item) === submission.submissionId);
