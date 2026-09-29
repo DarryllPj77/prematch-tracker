@@ -57,47 +57,36 @@ npm install
 npm install --prefix server
 ```
 
-Copy the environment templates and fill in your database and secrets:
+Copy the environment template once and fill in the local database connection:
 
 ```bash
-cp .env.example .env
-cp server/.env.example server/.env
+cp .env.example .env.local
 ```
+
+Set `LOCAL_DATABASE_URL` to a disposable Neon development branch when possible. Local environment files are ignored by Git.
 
 ## Running locally
 
-Start the API and Socket.io server in one terminal:
-
-```bash
-cd server
-npm run dev
-```
-
-The server runs at `http://localhost:3001`. Its database-aware health endpoint is `http://localhost:3001/health`.
-
-Start the Vite client from the repository root in another terminal:
+Start the API, Socket.io server, and Vite client together from the repository root:
 
 ```bash
 npm run dev
 ```
 
-Open `http://localhost:5173`.
+The API runs at `http://localhost:3001`, and the client opens at `http://localhost:5173`. The database-aware health endpoint is `http://localhost:3001/health`.
+
+Development mode automatically uses the local API URLs and reads `.env.local` or `server/.env`. Render sets `NODE_ENV=production`, so deployed builds automatically use Render's `DATABASE_URL`, `JWT_SECRET`, `MANAGER_SIGNUP_CODE`, `CLIENT_ORIGIN`, `VITE_API_URL`, and `VITE_SOCKET_URL` values instead.
 
 ## Environment variables
 
-Client `.env`:
+Local `.env.local`:
 
 ```env
 VITE_API_URL=http://localhost:3001
 VITE_SOCKET_URL=http://localhost:3001
-```
-
-Server `server/.env`:
-
-```env
-DATABASE_URL=postgresql://user:password@host/neondb?sslmode=require
-JWT_SECRET=replace-with-at-least-32-random-characters
-MANAGER_SIGNUP_CODE=replace-with-a-private-manager-registration-code
+LOCAL_DATABASE_URL=postgresql://user:password@host/neondb?sslmode=require
+JWT_SECRET=prematch-local-development-jwt-secret-2026
+MANAGER_SIGNUP_CODE=LOCAL-MANAGER-CODE
 CLIENT_ORIGIN=http://localhost:5173
 PORT=3001
 ```
@@ -109,7 +98,9 @@ The server creates missing tables from `server/sql/schema.sql` when it starts. N
 From the repository root:
 
 ```bash
-npm run dev       # Start Vite
+npm run dev        # Start the local API and Vite together
+npm run dev:client # Start only Vite
+npm run dev:server # Start only the local API
 npm run build     # Build the frontend into dist/
 npm run preview   # Preview the production frontend
 ```

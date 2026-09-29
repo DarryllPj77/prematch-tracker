@@ -1,21 +1,39 @@
-import "dotenv/config";
 import cors from "cors";
+import dotenv from "dotenv";
 import express from "express";
 import { createServer } from "node:http";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Server } from "socket.io";
 import { bearerToken, createAuthService } from "./auth.js";
 import { PostgresRepository } from "./database.js";
 import { registerSocketHandlers } from "./socketHandlers.js";
 
+const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.resolve(serverDirectory, "../..");
+const isProduction = process.env.NODE_ENV === "production";
+
+if (!isProduction) {
+  dotenv.config({ path: path.join(projectRoot, "server/.env"), quiet: true });
+  dotenv.config({ path: path.join(projectRoot, ".env.local"), quiet: true });
+}
+
+const databaseUrl = isProduction
+  ? process.env.DATABASE_URL
+  : process.env.LOCAL_DATABASE_URL || process.env.DATABASE_URL;
+const jwtSecret = process.env.JWT_SECRET
+  || (!isProduction ? "prematch-local-development-jwt-secret-2026" : "");
+const managerSignupCode = process.env.MANAGER_SIGNUP_CODE
+  || (!isProduction ? "LOCAL-MANAGER-CODE" : "");
 const clientOrigins = String(process.env.CLIENT_ORIGIN || "http://localhost:5173")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
-const repository = new PostgresRepository(process.env.DATABASE_URL);
+const repository = new PostgresRepository(databaseUrl);
 const authService = createAuthService({
   repository,
-  jwtSecret: process.env.JWT_SECRET,
-  managerSignupCode: process.env.MANAGER_SIGNUP_CODE,
+  jwtSecret,
+  managerSignupCode,
 });
 const app = express();
 const httpServer = createServer(app);
@@ -104,7 +122,7 @@ async function start() {
   await repository.initialize();
   registerSocketHandlers(io, repository);
   httpServer.listen(port, "0.0.0.0", () => {
-    console.log(`PreMatch server listening on port ${port}`);
+    console.log(`PreMatch server listening on port ${port} (${isProduction ? "production" : "local development"})`);
   });
 }
 
