@@ -261,9 +261,15 @@ export default function ManagerDashboard({ profile }) {
 
   return <section className="dashboard">
     <header className="dashboard-head">
-      <div><div className="eyebrow">COMMAND CENTER / LIVE RELAY</div><h1>MANAGER <span>FEED</span></h1></div>
+      <div className="manager-title-block">
+        <div className="eyebrow">COMMAND CENTER / LIVE RELAY</div>
+        <div className="premier-team-heading premier-team-heading--manager">
+          <span>PREMIER TEAM</span>
+          <strong>{teamIdentity.teamName}</strong>
+        </div>
+        <h1>MANAGER <span>FEED</span></h1>
+      </div>
       <div className="manager-head-actions">
-        <div className="team-name-card"><span>PREMIER TEAM</span><strong>{teamIdentity.teamName}</strong></div>
         <button className="team-code-card" type="button" onClick={copyTeamCode} title="Copy team invite code">
           <span>INVITE CODE</span><strong>{teamIdentity.teamCode}</strong><small>{teamCodeCopied ? "COPIED!" : "CLICK TO COPY"}</small>
         </button>

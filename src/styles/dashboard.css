@@ -4,7 +4,6 @@
   gap: .8rem;
 }
 
-.team-name-card,
 .team-code-card {
   display: grid;
   align-items: center;
@@ -14,21 +13,11 @@
   background: rgba(85, 231, 240, .06);
 }
 
-.team-name-card span,
 .team-code-card span,
 .team-code-card small {
   color: var(--muted);
   font-size: .46rem;
   letter-spacing: .1em;
-}
-
-.team-name-card strong {
-  max-width: 13rem;
-  overflow: hidden;
-  color: var(--ink);
-  font-size: 1rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .team-code-card {
@@ -50,6 +39,71 @@
   border-color: var(--cyan);
   outline: none;
   background: rgba(85, 231, 240, .12);
+}
+
+.manager-title-block {
+  min-width: 0;
+}
+
+.manager-title-block h1 {
+  margin-top: .8rem;
+}
+
+.premier-team-heading {
+  position: relative;
+  display: grid;
+  justify-items: start;
+  gap: .2rem;
+  width: fit-content;
+  max-width: 100%;
+  padding-bottom: .8rem;
+  text-transform: uppercase;
+}
+
+.premier-team-heading::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: clamp(3.5rem, 16vw, 8rem);
+  height: 3px;
+  background: var(--red);
+  box-shadow: 1.2rem 0 0 rgba(56, 217, 255, .45);
+}
+
+.premier-team-heading > span {
+  color: var(--red);
+  font-family: 'Space Mono', monospace;
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: .2em;
+}
+
+.premier-team-heading > strong {
+  max-width: 100%;
+  color: var(--ink);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  font-weight: 800;
+  letter-spacing: .045em;
+  line-height: .92;
+  overflow-wrap: anywhere;
+  text-shadow: 2px 0 0 rgba(255, 70, 85, .3);
+}
+
+.premier-team-heading > small {
+  color: var(--muted);
+  font-size: .52rem;
+  font-weight: 700;
+  letter-spacing: .14em;
+}
+
+.premier-team-heading--player {
+  margin: -.25rem 0 1.15rem;
+}
+
+.premier-team-heading--manager {
+  margin-top: .7rem;
 }
 
 .dashboard-grid {

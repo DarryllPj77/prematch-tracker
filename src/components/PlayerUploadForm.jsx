@@ -311,7 +311,16 @@ export default function PlayerUploadForm({ profile }) {
 
   return <section className="panel player-panel">
     <header className="player-intake-head">
-      <div className="player-intake-copy"><div className="eyebrow">PLAYER INTAKE / LIVE TARGETS</div><div className="player-team-name"><span>ROSTER</span><strong>{teamIdentity.teamName}</strong><small>{teamIdentity.teamCode}</small></div><h1>PREMATCH<br /><span>TRACKER</span></h1><p className="lede">Log your warm-up proof before queue opens.</p></div>
+      <div className="player-intake-copy">
+        <div className="eyebrow">PLAYER INTAKE / LIVE TARGETS</div>
+        <h1>PREMATCH<br /><span>TRACKER</span></h1>
+        <div className="premier-team-heading premier-team-heading--player">
+          <span>PREMIER TEAM</span>
+          <strong>{teamIdentity.teamName}</strong>
+          <small>ROSTER CODE / {teamIdentity.teamCode}</small>
+        </div>
+        <p className="lede">Log your warm-up proof before queue opens.</p>
+      </div>
       <SubmissionCalendar
         playerName={player.playerName}
         refreshKey={calendarRefreshKey}
