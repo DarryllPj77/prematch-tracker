@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { evaluateAttendance, formatDrillScore } from "../../shared/attendanceValidation.js";
 import { extractScoreFromImage } from "../services/mlStub.js";
-import { deleteDailyLog, getLogsForPlayer, saveScreenshot, saveSubmissionData } from "../services/storageService.js";
+import { deleteDailyLog, getLogsForPlayer, getSubmissionForPlayerDate, saveScreenshot, saveSubmissionData } from "../services/storageService.js";
 import * as socketService from "../services/socketService.js";
 import SubmissionCalendar from "./SubmissionCalendar.jsx";
 
@@ -36,40 +36,68 @@ export default function PlayerUploadForm({ profile }) {
   const [message, setMessage] = useState("");
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
   const [hydrating, setHydrating] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(() => toLocalDateKey(new Date()));
+  const todayKey = toLocalDateKey(new Date());
+  const isPastDate = selectedDate < todayKey;
 
   useEffect(() => {
     let active = true;
 
-    async function rehydrateSubmission() {
+    async function loadSelectedSubmission() {
+      setHydrating(true);
       try {
         const playerName = profile.username;
-        const logs = await getLogsForPlayer(playerName);
-        const latest = logs[0];
-        if (!active || !latest) return;
-
+        const selectedSubmission = await getSubmissionForPlayerDate(playerName, selectedDate);
         const activeTargets = socketService.getTargets() || fallbackTargets;
-        const placements = resizePreserving(latest.dm?.placements, activeTargets.dm.matchesRequired, "");
-        const scores = resizePreserving(latest.range?.scores, activeTargets.range.roundsRequired, "");
-        const fallbackKeys = latest.screenshotKeys || [];
-        const dmScreenshots = resizePreserving(latest.screenshotSlots?.dm || fallbackKeys.slice(0, activeTargets.dm.matchesRequired), activeTargets.dm.matchesRequired, null);
-        const rangeScreenshots = resizePreserving(latest.screenshotSlots?.range || fallbackKeys.slice(activeTargets.dm.matchesRequired), activeTargets.range.roundsRequired, null);
+        if (!active) return;
+
+        setTargets(activeTargets);
+        if (!selectedSubmission) {
+          setPlayer({
+            playerName,
+            placements: Array(activeTargets.dm.matchesRequired).fill(""),
+            scores: Array(activeTargets.range.roundsRequired).fill(""),
+          });
+          setScreenshots({
+            dm: Array(activeTargets.dm.matchesRequired).fill(null),
+            range: Array(activeTargets.range.roundsRequired).fill(null),
+          });
+          setFileInputKeys((current) => ({
+            dm: Array.from({ length: activeTargets.dm.matchesRequired }, (_, index) => (current.dm[index] || 0) + 1),
+            range: Array.from({ length: activeTargets.range.roundsRequired }, (_, index) => (current.range[index] || 0) + 1),
+          }));
+          setRetaking(createRetakeState(activeTargets));
+          setSubmittedAttendance(null);
+          setMessage(selectedDate === toLocalDateKey(new Date())
+            ? "A new submission is required for today."
+            : "No saved submission exists for the selected date.");
+          return;
+        }
+
+        const placements = resizePreserving(selectedSubmission.dm?.placements, activeTargets.dm.matchesRequired, "");
+        const scores = resizePreserving(selectedSubmission.range?.scores, activeTargets.range.roundsRequired, "");
+        const fallbackKeys = selectedSubmission.screenshotKeys || [];
+        const dmScreenshots = resizePreserving(selectedSubmission.screenshotSlots?.dm || fallbackKeys.slice(0, activeTargets.dm.matchesRequired), activeTargets.dm.matchesRequired, null);
+        const rangeScreenshots = resizePreserving(selectedSubmission.screenshotSlots?.range || fallbackKeys.slice(activeTargets.dm.matchesRequired), activeTargets.range.roundsRequired, null);
 
         setPlayer({ playerName, placements, scores });
         setScreenshots({ dm: dmScreenshots, range: rangeScreenshots });
         setFileInputKeys(createRetakeState(activeTargets, 0));
         setRetaking(createRetakeState(activeTargets));
         setSubmittedAttendance(evaluateAttendance({ dmResults: placements, rangeResults: scores, targets: activeTargets }));
-        setMessage("Previous submission restored from this device.");
+        setMessage(selectedDate < toLocalDateKey(new Date())
+          ? `Viewing ${selectedDate} in read-only mode.`
+          : "Today's submission restored from this device.");
       } catch {
-        if (active) setMessage("Saved submission history could not be restored from this device.");
+        if (active) setMessage("The selected submission could not be loaded from this device.");
       } finally {
         if (active) setHydrating(false);
       }
     }
 
-    rehydrateSubmission();
+    loadSelectedSubmission();
     return () => { active = false; };
-  }, [profile.username]);
+  }, [profile.username, selectedDate]);
 
   useEffect(() => {
     const update = (next) => {
@@ -125,7 +153,7 @@ export default function PlayerUploadForm({ profile }) {
     const uuid = crypto.randomUUID();
     await saveScreenshot(uuid, file, {
       capturedFor: `${type}-${index + 1}`,
-      logKey: `log:${toPlayerId(player.playerName)}:${toLocalDateKey()}`,
+      logKey: `log:${toPlayerId(player.playerName)}:${selectedDate}`,
     });
     await extractScoreFromImage(file, type);
     setScreenshots((current) => ({
@@ -160,6 +188,10 @@ export default function PlayerUploadForm({ profile }) {
 
   const submit = async (event) => {
     event.preventDefault();
+    if (selectedDate !== toLocalDateKey(new Date())) {
+      setMessage("Past submissions are read-only. Select today to submit a run.");
+      return;
+    }
     if (!player.playerName.trim()) {
       setMessage("Enter your player name first.");
       return;
@@ -168,7 +200,7 @@ export default function PlayerUploadForm({ profile }) {
     const attendance = evaluateAttendance({ dmResults: player.placements, rangeResults: player.scores, targets });
     const dmDrills = attendance.drills.filter((drill) => drill.type === "dm");
     const rangeDrills = attendance.drills.filter((drill) => drill.type === "range");
-    const date = toLocalDateKey();
+    const date = selectedDate;
     const playerId = toPlayerId(player.playerName);
     const payload = {
       submissionId: `${playerId}:${date}`,
@@ -208,6 +240,7 @@ export default function PlayerUploadForm({ profile }) {
 
   const getSubmittedDrill = (type, index) => submittedAttendance?.drills.find((drill) => drill.type === type && drill.index === index);
   const isDrillLocked = (type, index) => {
+    if (isPastDate) return true;
     const drill = getSubmittedDrill(type, index);
     if (!drill) return false;
     return !drill.needsResubmit || !retaking[type][index];
@@ -219,7 +252,7 @@ export default function PlayerUploadForm({ profile }) {
     return <div className="player-drill-result">
       <span>{formatDrillScore(drill)}</span>
       <strong className={`drill-tier tier-${drill.badgeColor}`}>{drill.status}</strong>
-      {drill.needsResubmit && !retaking[type][index] && <button type="button" onClick={() => beginRetake(type, index)}>RE-TAKE DRILL</button>}
+      {!isPastDate && drill.needsResubmit && !retaking[type][index] && <button type="button" onClick={() => beginRetake(type, index)}>RE-TAKE DRILL</button>}
       {drill.needsResubmit && retaking[type][index] && <em>RE-TAKE ACTIVE</em>}
     </div>;
   };
@@ -227,7 +260,12 @@ export default function PlayerUploadForm({ profile }) {
   return <section className="panel player-panel">
     <header className="player-intake-head">
       <div className="player-intake-copy"><div className="eyebrow">PLAYER INTAKE / LIVE TARGETS</div><h1>PREMATCH<br /><span>TRACKER</span></h1><p className="lede">Log your warm-up proof before queue opens.</p></div>
-      <SubmissionCalendar playerName={player.playerName} refreshKey={calendarRefreshKey} />
+      <SubmissionCalendar
+        playerName={player.playerName}
+        refreshKey={calendarRefreshKey}
+        selectedDate={selectedDate}
+        onSelectDate={setSelectedDate}
+      />
     </header>
 
     <form onSubmit={submit}>
@@ -261,8 +299,8 @@ export default function PlayerUploadForm({ profile }) {
       </div>
 
       <div className="status-row">
-        <span className={currentAttendance.isAttended ? "status pass" : "status fail"}>{currentAttendance.isAttended ? "ATTENDANCE READY" : "REQUIREMENTS UNMET"}</span>
-        <button className="btn-primary" type="submit" disabled={hydrating}>{hydrating ? "RESTORING..." : submittedAttendance && !submittedAttendance.isAttended ? "RESUBMIT FAILED DRILLS" : "SUBMIT RUN"}</button>
+        <span className={isPastDate ? "status" : currentAttendance.isAttended ? "status pass" : "status fail"}>{isPastDate ? "HISTORICAL RECORD" : currentAttendance.isAttended ? "ATTENDANCE READY" : "REQUIREMENTS UNMET"}</span>
+        <button className="btn-primary" type="submit" disabled={hydrating || isPastDate}>{hydrating ? "LOADING..." : isPastDate ? "PAST SUBMISSION / READ ONLY" : submittedAttendance && !submittedAttendance.isAttended ? "RESUBMIT FAILED DRILLS" : "SUBMIT RUN"}</button>
       </div>
       {message && <p className="message">{message}</p>}
     </form>

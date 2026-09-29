@@ -73,12 +73,11 @@ function ScreenshotProofs({ screenshotKeys }) {
   </div>;
 }
 
-export default function SubmissionCalendar({ playerName, refreshKey = 0 }) {
+export default function SubmissionCalendar({ playerName, refreshKey = 0, selectedDate, onSelectDate }) {
   const today = useMemo(() => new Date(), []);
   const todayKey = toDateKey(today);
   const [visibleMonth, setVisibleMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [logs, setLogs] = useState([]);
-  const [selectedDate, setSelectedDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const callsign = playerName.trim();
@@ -88,7 +87,6 @@ export default function SubmissionCalendar({ playerName, refreshKey = 0 }) {
     const timeoutId = window.setTimeout(async () => {
       if (!callsign) {
         setLogs([]);
-        setSelectedDate("");
         setLoadError(false);
         setLoading(false);
         return;
@@ -102,7 +100,6 @@ export default function SubmissionCalendar({ playerName, refreshKey = 0 }) {
       } catch {
         if (active) {
           setLogs([]);
-          setSelectedDate("");
           setLoadError(true);
         }
       } finally {
@@ -114,7 +111,7 @@ export default function SubmissionCalendar({ playerName, refreshKey = 0 }) {
       active = false;
       window.clearTimeout(timeoutId);
     };
-  }, [callsign, refreshKey]);
+  }, [callsign, refreshKey, todayKey]);
 
   const logsByDate = useMemo(() => new Map(logs.map((log) => [log.date, log])), [logs]);
   const selectedLog = selectedDate ? logsByDate.get(selectedDate) : null;
@@ -137,7 +134,6 @@ export default function SubmissionCalendar({ playerName, refreshKey = 0 }) {
 
   const changeMonth = (amount) => {
     setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
-    setSelectedDate("");
   };
 
   return <aside className="submission-calendar cut-corner" aria-label="Submission history calendar">
@@ -172,8 +168,8 @@ export default function SubmissionCalendar({ playerName, refreshKey = 0 }) {
             className={`calendar-day ${stateClass}${dateKey === todayKey ? " is-today" : ""}${selectedDate === dateKey ? " is-selected" : ""}`}
             type="button"
             key={dateKey}
-            disabled={!log || !callsign}
-            onClick={() => setSelectedDate(dateKey)}
+            disabled={!callsign || future || (!log && dateKey !== todayKey)}
+            onClick={() => onSelectDate(dateKey)}
             style={{ animationDelay: `${index * 12}ms` }}
             aria-label={`${date.toLocaleDateString()}${log ? ", view submission" : ""}`}
           >{date.getDate()}</button>;
@@ -188,7 +184,7 @@ export default function SubmissionCalendar({ playerName, refreshKey = 0 }) {
     {selectedLog && <div className="calendar-details">
       <div className="calendar-details-head">
         <strong>{new Date(`${selectedLog.date}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "2-digit", year: "numeric" }).toUpperCase()}</strong>
-        <button type="button" onClick={() => setSelectedDate("")} aria-label="Close submission details">CLOSE</button>
+        <button type="button" onClick={() => onSelectDate(todayKey)} aria-label="Close submission details">CLOSE</button>
       </div>
       <dl>
         <div><dt>DM PLACEMENTS</dt><dd>{selectedLog.dm?.placements?.join(" / ") || "--"}</dd></div>

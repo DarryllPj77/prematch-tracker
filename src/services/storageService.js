@@ -145,6 +145,12 @@ export async function getLogsForPlayer(playerId) {
   return logs.sort((left, right) => right.date.localeCompare(left.date));
 }
 
+export async function getSubmissionForPlayerDate(playerId, date) {
+  if (!date) return null;
+  const logs = await getLogsForPlayer(playerId);
+  return logs.find((log) => log.date === date) || null;
+}
+
 export async function getAllLogs() {
   const logs = [];
   await logsStore.iterate((value, key) => {
