@@ -100,8 +100,8 @@ export default function Login({ onLogin }) {
         </fieldset>}
 
         {isRegister && role === "manager" && <>
-          <label>PREMIER TEAM NAME<input type="text" autoComplete="organization" maxLength="64" value={teamName} onChange={(event) => setTeamName(event.target.value)} placeholder="e.g. Paper Rex" required /></label>
-          <label>MANAGER REGISTRATION CODE<input type="password" autoComplete="off" value={managerCode} onChange={(event) => setManagerCode(event.target.value)} placeholder="Enter deployment manager code" /></label>
+          <label htmlFor="manager-registration-code">MANAGER REGISTRATION CODE<input id="manager-registration-code" name="managerCode" type="password" autoComplete="off" value={managerCode} onChange={(event) => setManagerCode(event.target.value)} placeholder="Enter deployment manager code" /></label>
+          <label htmlFor="premier-team-name">PREMIER TEAM NAME<input id="premier-team-name" name="teamName" type="text" autoComplete="organization" maxLength="64" value={teamName} onChange={(event) => setTeamName(event.target.value)} placeholder="e.g. Paper Rex" required /></label>
         </>}
         {isRegister && role === "player" && <label>TEAM INVITE CODE<input type="text" autoComplete="off" inputMode="text" maxLength="4" pattern="[A-Za-z0-9]{4}" value={teamCode} onChange={(event) => setTeamCode(event.target.value.replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 4))} placeholder="e.g. K9X2" /></label>}
 
