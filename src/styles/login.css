@@ -1,0 +1,316 @@
+.login-shell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  overflow: hidden;
+  padding: clamp(1rem, 4vw, 4rem);
+  background:
+    linear-gradient(115deg, rgba(15, 25, 35, .98), rgba(15, 25, 35, .8)),
+    radial-gradient(circle at 82% 18%, rgba(255, 70, 85, .22), transparent 34%),
+    var(--bg);
+}
+
+.login-shell::before,
+.login-shell::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.login-shell::before {
+  inset: 0;
+  opacity: .25;
+  background-image: linear-gradient(rgba(236, 232, 225, .08) 1px, transparent 1px), linear-gradient(90deg, rgba(236, 232, 225, .08) 1px, transparent 1px);
+  background-size: 46px 46px;
+  mask-image: linear-gradient(90deg, transparent, #000 55%);
+}
+
+.login-shell::after {
+  right: -9rem;
+  bottom: -12rem;
+  width: 32rem;
+  height: 32rem;
+  border: 1px solid rgba(255, 70, 85, .35);
+  transform: rotate(45deg);
+}
+
+.login-card {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr);
+  width: min(1040px, 100%);
+  border: 1px solid rgba(236, 232, 225, .2);
+  background: rgba(17, 31, 44, .96);
+  box-shadow: 0 28px 100px rgba(0, 0, 0, .55), inset 4px 0 var(--red);
+  animation: rise .4s ease-out both;
+}
+
+.login-copy {
+  display: grid;
+  align-content: center;
+  min-height: 540px;
+  padding: clamp(2rem, 6vw, 4.5rem);
+  border-right: 1px solid var(--line);
+  background: linear-gradient(145deg, rgba(255, 70, 85, .07), transparent 52%);
+}
+
+.login-copy h1 {
+  margin: 1.4rem 0;
+  font-size: clamp(3.8rem, 8vw, 7rem);
+}
+
+.login-copy.is-register h1 {
+  font-size: clamp(3.1rem, 6.5vw, 5.6rem);
+}
+
+.login-copy p {
+  max-width: 33rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: .72rem;
+  line-height: 1.9;
+}
+
+.login-signal {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin-top: 2rem;
+  color: var(--muted);
+  font-size: .5rem;
+  letter-spacing: .1em;
+}
+
+.login-signal i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #85f3a1;
+  box-shadow: 0 0 10px #85f3a1;
+}
+
+.login-form {
+  display: grid;
+  align-content: center;
+  gap: 1.2rem;
+  margin: 0;
+  padding: clamp(1.5rem, 5vw, 3rem);
+}
+
+.login-form-head {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  padding-bottom: .8rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.login-form-head span {
+  color: var(--red);
+  font-size: .6rem;
+}
+
+.login-form-head strong {
+  color: var(--ink);
+  font-size: .85rem;
+}
+
+.role-selector {
+  grid-template-columns: 1fr 1fr;
+  gap: .6rem;
+  border: 0;
+  padding: 0;
+}
+
+.role-selector legend {
+  grid-column: 1 / -1;
+  margin-bottom: .45rem;
+  color: var(--muted);
+  font-family: 'Space Mono', monospace;
+  font-size: .7rem;
+  letter-spacing: .08em;
+}
+
+.role-selector button {
+  display: grid;
+  gap: .4rem;
+  min-height: 92px;
+  border: 1px solid var(--line);
+  padding: .8rem;
+  color: var(--ink);
+  background: #0b141d;
+  text-align: left;
+  cursor: pointer;
+}
+
+.role-selector button span {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.15rem;
+  letter-spacing: .08em;
+}
+
+.role-selector button small {
+  color: var(--muted);
+  font-size: .45rem;
+  line-height: 1.5;
+}
+
+.role-selector button:hover,
+.role-selector button:focus-visible,
+.role-selector button.is-selected {
+  border-color: var(--red);
+  outline: none;
+  background: rgba(255, 70, 85, .1);
+  box-shadow: inset 3px 0 var(--red), 0 0 18px rgba(255, 70, 85, .08);
+}
+
+.role-selector button.is-selected span {
+  color: var(--red);
+}
+
+.login-error {
+  border-left: 2px solid var(--red);
+  padding: .6rem .7rem;
+  color: #ff7a86;
+  background: rgba(255, 70, 85, .08);
+  font-size: .55rem;
+  line-height: 1.6;
+}
+
+.login-pin-input {
+  font-family: 'Space Mono', monospace;
+  font-size: 1rem;
+  letter-spacing: .55em;
+}
+
+.login-pin-input::placeholder {
+  color: rgba(236, 232, 225, .28);
+  letter-spacing: .55em;
+}
+
+.login-submit {
+  width: 100%;
+  min-height: 48px;
+}
+
+.login-submit:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+
+.login-storage-note {
+  color: var(--muted);
+  font-size: .45rem;
+  text-align: center;
+  letter-spacing: .08em;
+}
+
+.login-mode-switch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .45rem;
+  color: var(--muted);
+  font-family: 'Space Mono', monospace;
+  font-size: .5rem;
+  letter-spacing: .06em;
+}
+
+.login-mode-switch button {
+  border: 0;
+  border-bottom: 1px solid rgba(255, 70, 85, .5);
+  padding: .1rem 0;
+  color: var(--red);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.login-mode-switch button:hover,
+.login-mode-switch button:focus-visible {
+  border-bottom-color: #55e7f0;
+  outline: none;
+  color: var(--ink);
+  text-shadow: -1px 0 var(--red), 1px 0 #55e7f0;
+}
+
+.profile-loading {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  color: var(--muted);
+  background: var(--bg);
+  font-size: .65rem;
+  letter-spacing: .1em;
+}
+
+.session-controls {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+}
+
+.session-identity {
+  display: grid;
+  justify-items: end;
+  gap: .1rem;
+}
+
+.session-identity span {
+  color: var(--red);
+  font-size: .45rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.session-identity strong {
+  color: var(--ink);
+  font-size: .8rem;
+  text-transform: uppercase;
+}
+
+.session-logout {
+  border: 1px solid var(--line);
+  padding: .6rem .75rem;
+  color: var(--muted);
+  background: transparent;
+  font-size: .5rem;
+  cursor: pointer;
+}
+
+.session-logout:hover,
+.session-logout:focus-visible {
+  border-color: var(--red);
+  outline: none;
+  color: var(--red);
+  background: rgba(255, 70, 85, .07);
+}
+
+@media (max-width: 800px) {
+  .login-card {
+    grid-template-columns: 1fr;
+  }
+
+  .login-copy {
+    min-height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+}
+
+@media (max-width: 460px) {
+  .role-selector {
+    grid-template-columns: 1fr;
+  }
+
+  .session-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .session-identity {
+    justify-items: start;
+  }
+}

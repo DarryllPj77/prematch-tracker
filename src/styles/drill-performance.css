@@ -1,0 +1,197 @@
+.attendance-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: .9rem 0 0;
+  padding: .7rem .8rem;
+  border: 1px solid currentColor;
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+
+.attendance-result span {
+  font-size: .5rem;
+  letter-spacing: .1em;
+}
+
+.attendance-result strong {
+  font-size: .75rem;
+  text-align: right;
+}
+
+.attendance-result.is-attended {
+  color: #85f3a1;
+  background: rgba(75, 211, 111, .13);
+}
+
+.attendance-result.is-unmet {
+  color: var(--ink);
+  background: var(--red);
+}
+
+.submission-detail-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .75rem 0;
+  color: var(--muted);
+}
+
+.submission-detail-meta span {
+  font-size: .5rem;
+  letter-spacing: .08em;
+}
+
+.submission-detail-meta strong {
+  color: var(--ink);
+  font-size: .65rem;
+}
+
+.submission-drill-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+  gap: .6rem;
+  margin-bottom: 1rem;
+}
+
+.submission-drill-card {
+  position: relative;
+  display: grid;
+  gap: .45rem;
+  min-height: 108px;
+  padding: .75rem;
+  border: 1px solid var(--line);
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+  background: rgba(21, 34, 47, .75);
+}
+
+.submission-drill-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2.5rem;
+  height: 2px;
+  background: currentColor;
+}
+
+.drill-name {
+  color: var(--muted);
+  font-size: .48rem;
+  letter-spacing: .08em;
+}
+
+.drill-score {
+  color: var(--ink);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.2rem;
+  letter-spacing: .05em;
+}
+
+.drill-tier {
+  width: fit-content;
+  border: 1px solid currentColor;
+  padding: .25rem .4rem;
+  font-family: 'Space Mono', monospace;
+  font-size: .45rem;
+  letter-spacing: .06em;
+}
+
+.tier-green {
+  color: #85f3a1;
+}
+
+.tier-cyan {
+  color: var(--cyan);
+}
+
+.tier-gold {
+  color: #f6c453;
+}
+
+.tier-red {
+  color: var(--red);
+}
+
+.submission-drill-card.needs-resubmit {
+  border-color: var(--red);
+  background: rgba(255, 70, 85, .07);
+  box-shadow: inset 3px 0 rgba(255, 70, 85, .65);
+}
+
+.drill-entry {
+  display: grid;
+  gap: .7rem;
+  padding: .75rem;
+  border: 1px solid transparent;
+  transition: border-color .18s ease, background .18s ease;
+}
+
+.drill-entry.is-passed {
+  border-color: rgba(133, 243, 161, .28);
+  background: rgba(75, 211, 111, .045);
+}
+
+.drill-entry.is-failed {
+  border-color: var(--red);
+  background: rgba(255, 70, 85, .07);
+  box-shadow: inset 3px 0 rgba(255, 70, 85, .7);
+}
+
+.drill-entry input[readonly],
+.drill-entry input:disabled {
+  opacity: .48;
+  cursor: not-allowed;
+}
+
+.player-drill-result {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .5rem;
+  padding-top: .15rem;
+}
+
+.player-drill-result > span {
+  color: var(--ink);
+  font-size: .58rem;
+}
+
+.player-drill-result button {
+  margin-left: auto;
+  border: 1px solid var(--red);
+  padding: .4rem .55rem;
+  color: var(--red);
+  background: transparent;
+  font-size: .48rem;
+  cursor: pointer;
+}
+
+.player-drill-result button:hover,
+.player-drill-result button:focus-visible {
+  outline: none;
+  color: var(--bg);
+  background: var(--red);
+  text-shadow: 1px 0 var(--cyan), -1px 0 var(--ink);
+}
+
+.player-drill-result em {
+  margin-left: auto;
+  color: var(--red);
+  font-size: .45rem;
+  font-style: normal;
+  letter-spacing: .08em;
+}
+
+@media (max-width: 600px) {
+  .attendance-result,
+  .submission-detail-meta {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .attendance-result strong {
+    text-align: left;
+  }
+}

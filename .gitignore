@@ -1,0 +1,53 @@
+# Dependencies (root Vite client and nested Socket.io server)
+/node_modules/
+/server/node_modules/
+
+# Vite build output
+/dist/
+
+# Environment variables and local overrides
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime process files
+pids/
+*.pid
+*.pid.lock
+*.seed
+
+# Tool caches
+.vite/
+.cache/
+.npm/
+.eslintcache
+*.tsbuildinfo
+
+# Personal editor settings; shared extension recommendations stay trackable
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local Python environments (not part of the React/Node application)
+.venv/
+venv/

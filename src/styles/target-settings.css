@@ -1,0 +1,145 @@
+@keyframes settings-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes settings-panel-in {
+  from { opacity: 0; transform: translateX(24px) scale(.98); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes settings-backdrop-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes settings-panel-out {
+  from { opacity: 1; transform: translateX(0) scale(1); }
+  to { opacity: 0; transform: translateX(18px) scale(.98); }
+}
+
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 850;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(15, 25, 35, .82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: settings-backdrop-in .18s ease-out both;
+}
+
+.target-settings-panel {
+  width: min(460px, calc(100vw - 2rem));
+  margin: 0;
+  padding: 1.2rem;
+  border: 1px solid rgba(255, 70, 85, .7);
+  background: #111f2c;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, .65), 0 0 30px rgba(255, 70, 85, .1);
+  animation: settings-panel-in .22s ease-out both;
+}
+
+.settings-backdrop.is-closing {
+  animation: settings-backdrop-out .16s ease-in both;
+  pointer-events: none;
+}
+
+.settings-backdrop.is-closing .target-settings-panel {
+  animation: settings-panel-out .16s ease-in both;
+}
+
+.target-settings-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: .85rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.target-settings-head span {
+  color: var(--red);
+  font-size: .52rem;
+  letter-spacing: .12em;
+}
+
+.target-settings-head h2 {
+  margin: .2rem 0 0;
+  color: var(--ink);
+  font-size: 1.7rem;
+}
+
+.target-settings-x {
+  border: 1px solid var(--red);
+  padding: .48rem .65rem;
+  color: var(--ink);
+  background: rgba(255, 70, 85, .08);
+  font-size: .7rem;
+  cursor: pointer;
+}
+
+.target-settings-x:hover,
+.target-settings-x:focus-visible {
+  outline: none;
+  color: var(--bg);
+  background: var(--red);
+  text-shadow: 1px 0 var(--cyan), -1px 0 var(--ink);
+}
+
+.target-settings-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding: 1.2rem 0;
+}
+
+.target-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: .7rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.target-settings-actions button {
+  min-width: 8rem;
+}
+
+.settings-cancel {
+  border: 1px solid var(--line);
+  padding: .75rem 1.2rem;
+  color: var(--ink);
+  background: transparent;
+  cursor: pointer;
+}
+
+.settings-cancel:hover,
+.settings-cancel:focus-visible {
+  border-color: var(--red);
+  outline: none;
+  color: var(--red);
+  background: rgba(255, 70, 85, .06);
+}
+
+@media (max-width: 520px) {
+  .target-settings-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .target-settings-actions {
+    flex-direction: column-reverse;
+  }
+
+  .target-settings-actions button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-backdrop,
+  .target-settings-panel {
+    animation: none;
+  }
+}
