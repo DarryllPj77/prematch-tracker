@@ -327,7 +327,8 @@ export default function PlayerUploadForm({ profile }) {
         <div className="premier-team-heading premier-team-heading--player">
           <span>PREMIER TEAM</span>
           <strong>{teamIdentity.teamName}</strong>
-          <small>ROSTER CODE / {teamIdentity.teamCode}</small>
+          <small className="team-user-subtitle">PLAYER / {profile.username}</small>
+          <small className="team-roster-code">ROSTER CODE / {teamIdentity.teamCode}</small>
         </div>
         <p className="lede">Log your warm-up proof before queue opens.</p>
       </div>

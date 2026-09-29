@@ -255,20 +255,43 @@
 .session-identity {
   display: grid;
   justify-items: end;
-  gap: .1rem;
+  gap: .15rem;
+  max-width: min(32rem, 48vw);
+  text-align: right;
 }
 
-.session-identity span {
+.session-team-label {
   color: var(--red);
-  font-size: .45rem;
-  letter-spacing: .12em;
+  font-size: .58rem;
+  font-weight: 700;
+  letter-spacing: .18em;
   text-transform: uppercase;
 }
 
-.session-identity strong {
+.session-team-name {
+  max-width: 100%;
   color: var(--ink);
-  font-size: .8rem;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: clamp(2rem, 3.4vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: .055em;
+  line-height: .9;
+  overflow-wrap: anywhere;
   text-transform: uppercase;
+  text-shadow: 2px 0 rgba(255, 70, 85, .3);
+}
+
+.session-user {
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.session-user b {
+  color: var(--red);
+  font-weight: 700;
 }
 
 .session-logout {
@@ -312,5 +335,7 @@
 
   .session-identity {
     justify-items: start;
+    max-width: 100%;
+    text-align: left;
   }
 }

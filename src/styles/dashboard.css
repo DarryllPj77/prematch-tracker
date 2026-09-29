@@ -49,6 +49,10 @@
   margin-top: .8rem;
 }
 
+.dashboard-head h1 {
+  font-size: clamp(2.5rem, 5.5vw, 4rem);
+}
+
 .premier-team-heading {
   position: relative;
   display: grid;
@@ -83,7 +87,7 @@
   max-width: 100%;
   color: var(--ink);
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  font-size: clamp(3.5rem, 8vw, 6rem);
   font-weight: 800;
   letter-spacing: .045em;
   line-height: .92;
@@ -96,6 +100,19 @@
   font-size: .52rem;
   font-weight: 700;
   letter-spacing: .14em;
+}
+
+.premier-team-heading > .team-user-subtitle {
+  margin-top: .25rem;
+  color: var(--red);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+}
+
+.premier-team-heading > .team-roster-code {
+  font-size: .62rem;
 }
 
 .premier-team-heading--player {
@@ -176,7 +193,7 @@
   align-items: center;
   margin-bottom: .25rem;
   padding: 0;
-  font-size: .7rem;
+  font-size: .9rem;
 }
 
 .roster-player-select {
@@ -211,14 +228,18 @@
 
 .roster-player-select strong {
   min-width: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: .045em;
   overflow-wrap: anywhere;
 }
 
 .roster-player-select small {
   grid-column: 2;
   margin-top: .25rem;
-  color: var(--muted);
-  font-size: .48rem;
+  color: rgba(236, 232, 225, .7);
+  font-size: .85rem;
+  line-height: 1.35;
 }
 
 .roster-remove {
@@ -482,6 +503,32 @@
   padding: 1rem .6rem;
   cursor: pointer;
   transition: border-color .18s ease, background .18s ease;
+}
+
+.submission > div:first-child > strong {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.submission > div:first-child > small {
+  color: rgba(236, 232, 225, .68);
+  font-size: .82rem;
+  line-height: 1.4;
+}
+
+.submission .result-lines {
+  color: rgba(236, 232, 225, .78);
+  font-size: .9rem;
+  font-weight: 700;
+  line-height: 1.65;
+}
+
+.submission > .status {
+  min-width: 4.25rem;
+  padding: .55rem .75rem;
+  font-size: .82rem;
+  font-weight: 700;
+  text-align: center;
 }
 
 .submission:hover,

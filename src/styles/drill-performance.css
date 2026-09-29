@@ -39,13 +39,13 @@
 }
 
 .submission-detail-meta span {
-  font-size: .5rem;
+  font-size: .68rem;
   letter-spacing: .08em;
 }
 
 .submission-detail-meta strong {
   color: var(--ink);
-  font-size: .65rem;
+  font-size: .82rem;
 }
 
 .submission-requirements-note {
