@@ -126,8 +126,8 @@
 }
 
 .dot.online {
-  background: var(--cyan);
-  box-shadow: 0 0 10px rgba(56, 217, 255, .8);
+  background: #85f3a1;
+  box-shadow: 0 0 10px rgba(133, 243, 161, .8);
 }
 
 .manager-calendar {

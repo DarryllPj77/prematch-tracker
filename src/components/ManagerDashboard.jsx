@@ -86,6 +86,7 @@ function formatSubmissionTime(timestamp) {
 export default function ManagerDashboard() {
   const [targets, setTargets] = useState(socketService.getTargets() || fallbackTargets);
   const [submissions, setSubmissions] = useState([]);
+  const [registeredPlayers, setRegisteredPlayers] = useState([]);
   const [onlinePlayers, setOnlinePlayers] = useState([]);
   const [selectedPlayer, setSelectedPlayer] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
@@ -106,6 +107,15 @@ export default function ManagerDashboard() {
         setHistoryError(false);
       }
     };
+    const rosterSnapshot = (value) => {
+      const players = Array.isArray(value?.players) ? value.players : [];
+      setRegisteredPlayers(players
+        .map((player) => ({
+          id: player?.id,
+          name: String(player?.name || player?.username || "").trim(),
+        }))
+        .filter((player) => player.name));
+    };
     const connectionError = () => setHistoryError(true);
     const presence = (players) => setOnlinePlayers(Array.isArray(players) ? players : []);
     const deleted = (value) => {
@@ -119,18 +129,25 @@ export default function ManagerDashboard() {
     const removeUpdated = socketService.on("targets:updated", current);
     const removeIncoming = socketService.on("manager:newSubmission", incoming);
     const removeHistorySnapshot = socketService.on("manager:historySnapshot", historySnapshot);
+    const removeRosterSnapshot = socketService.on("manager:rosterSnapshot", rosterSnapshot);
     const removePresence = socketService.on("manager:playersOnline", presence);
     const removeDeleted = socketService.on("manager:submissionDeleted", deleted);
     const removeConnectionError = socketService.on("connect_error", connectionError);
     socketService.connect().emit("manager:join");
-    return () => { removeCurrent(); removeUpdated(); removeIncoming(); removeHistorySnapshot(); removePresence(); removeDeleted(); removeConnectionError(); };
+    return () => { removeCurrent(); removeUpdated(); removeIncoming(); removeHistorySnapshot(); removeRosterSnapshot(); removePresence(); removeDeleted(); removeConnectionError(); };
   }, []);
 
   const roster = useMemo(() => {
     const players = new Map();
+    registeredPlayers.forEach((player) => {
+      players.set(player.name.toLowerCase(), { ...player, passed: null, online: false });
+    });
     submissions.forEach((submission) => {
       const key = submission.playerName.toLowerCase();
-      if (!players.has(key)) players.set(key, { name: submission.playerName, passed: submission.passed, online: false });
+      const existing = players.get(key);
+      if (!existing || existing.passed === null) {
+        players.set(key, { ...existing, name: submission.playerName, passed: submission.passed, online: false });
+      }
     });
     onlinePlayers.forEach((name) => {
       const key = name.toLowerCase();
@@ -138,7 +155,7 @@ export default function ManagerDashboard() {
       players.set(key, existing ? { ...existing, online: true } : { name, passed: null, online: true });
     });
     return [...players.values()].sort((left, right) => left.name.localeCompare(right.name));
-  }, [submissions, onlinePlayers]);
+  }, [registeredPlayers, submissions, onlinePlayers]);
 
   const filteredLogs = useMemo(() => submissions.filter((submission) => {
     const matchesPlayer = !selectedPlayer || submission.playerName.toLowerCase() === selectedPlayer.toLowerCase();
@@ -217,13 +234,15 @@ export default function ManagerDashboard() {
       <aside className="dashboard-sidebar">
         <section className="roster" aria-label="Player roster">
           <div className="roster-title"><span className="eyebrow">ROSTER / {roster.length || "--"}</span><small>FILTER FEED</small></div>
-          <button className={`roster-filter${selectedPlayer ? "" : " is-selected"}`} type="button" onClick={() => { setSelectedPlayer(""); setSelectedSubmissionId(""); }}>ALL PLAYERS <span>{submissions.length}</span></button>
+          <button className={`roster-filter${selectedPlayer ? "" : " is-selected"}`} type="button" onClick={() => { setSelectedPlayer(""); setSelectedSubmissionId(""); }}>ALL PLAYERS <span>{roster.length}</span></button>
           {roster.length === 0
             ? <div className="roster-empty">No players registered yet.</div>
             : roster.map((player) => <button className={`roster-player${selectedPlayer.toLowerCase() === player.name.toLowerCase() ? " is-selected" : ""}`} type="button" key={player.name} onClick={() => selectPlayer(player.name)}>
-              <i className={`dot ${player.online ? "online" : player.passed ? "active" : "failed"}`} />
+              <i className={`dot${player.online ? " online" : ""}`} />
               <strong>{player.name}</strong>
-              <small>{player.online ? `ONLINE${player.passed === null ? "" : player.passed ? " / LATEST RUN PASSED" : " / LATEST RUN FAILED"}` : player.passed ? "LATEST RUN PASSED" : "LATEST RUN FAILED"}</small>
+              <small>{player.online
+                ? `ONLINE${player.passed === null ? " / NO SUBMISSIONS" : player.passed ? " / LATEST RUN PASSED" : " / LATEST RUN FAILED"}`
+                : `OFFLINE${player.passed === null ? " / NO SUBMISSIONS" : player.passed ? " / LATEST RUN PASSED" : " / LATEST RUN FAILED"}`}</small>
             </button>)}
         </section>
 

@@ -56,12 +56,16 @@ describe("persistent Socket.io workflow", () => {
   let httpServer;
   let ioServer;
   let manager;
+  let refreshedManager;
   let player;
   let baseUrl;
   const submissions = new Map();
   let targets = structuredClone(defaultTargets);
 
   const repository = {
+    async getPlayers() {
+      return [{ id: 2, name: "Momo", createdAt: "2026-09-29T00:00:00.000Z" }];
+    },
     async getTargets() { return structuredClone(targets); },
     async saveTargets(nextTargets) {
       targets = structuredClone(nextTargets);
@@ -104,6 +108,7 @@ describe("persistent Socket.io workflow", () => {
 
   after(async () => {
     manager?.disconnect();
+    refreshedManager?.disconnect();
     player?.disconnect();
     await ioServer.close();
   });
@@ -111,13 +116,17 @@ describe("persistent Socket.io workflow", () => {
   test("persists settings and submissions and returns database history", async () => {
     manager = createClient(baseUrl, { autoConnect: false, auth: { profile: { id: 1, username: "Coach", role: "manager" } } });
     const historyPromise = once(manager, "manager:historySnapshot");
+    const rosterPromise = once(manager, "manager:rosterSnapshot");
     manager.connect();
     await once(manager, "connect");
     assert.deepEqual((await historyPromise).logs, []);
+    assert.deepEqual((await rosterPromise).players.map((item) => item.name), ["Momo"]);
 
     player = createClient(baseUrl, { autoConnect: false, auth: { profile: { id: 2, username: "Momo", role: "player" } } });
+    const onlinePromise = once(manager, "manager:playersOnline");
     player.connect();
     await once(player, "connect");
+    assert.deepEqual(await onlinePromise, ["Momo"]);
 
     const settingsResponse = await emitWithAck(manager, "manager:updateTargets", {
       dm: { matchesRequired: 2, placementLimit: 5 },
@@ -143,5 +152,22 @@ describe("persistent Socket.io workflow", () => {
     const deleteResponse = await emitWithAck(manager, "delete_submission", { submissionId: "momo:2026-09-29" });
     assert.equal(deleteResponse.ok, true);
     assert.equal((await repository.getSubmissions()).length, 0);
+
+    const offlinePromise = once(manager, "manager:playersOnline");
+    player.disconnect();
+    assert.deepEqual(await offlinePromise, []);
+
+    manager.disconnect();
+    refreshedManager = createClient(baseUrl, { autoConnect: false, auth: { profile: { id: 3, username: "Coach", role: "manager" } } });
+    const refreshedRosterPromise = once(refreshedManager, "manager:rosterSnapshot");
+    const refreshedPresencePromise = once(refreshedManager, "manager:playersOnline");
+    refreshedManager.connect();
+    await once(refreshedManager, "connect");
+    assert.deepEqual((await refreshedRosterPromise).players.map((item) => item.name), ["Momo"]);
+    assert.deepEqual(await refreshedPresencePromise, []);
+
+    const replayedRosterPromise = once(refreshedManager, "manager:rosterSnapshot");
+    refreshedManager.emit("manager:join");
+    assert.deepEqual((await replayedRosterPromise).players.map((item) => item.name), ["Momo"]);
   });
 });

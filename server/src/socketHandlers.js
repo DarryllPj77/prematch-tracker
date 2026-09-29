@@ -35,22 +35,29 @@ function normalizeTargets(nextTargets, currentTargets) {
 export function registerSocketHandlers(io, repository) {
   const connectedPlayers = new Map();
 
+  const getOnlinePlayers = () => [...new Set(connectedPlayers.values())]
+    .sort((left, right) => left.localeCompare(right));
+
   const publishPlayerPresence = () => {
-    const players = [...new Set(connectedPlayers.values())].sort((left, right) => left.localeCompare(right));
-    io.to("managers").emit("manager:playersOnline", players);
+    io.to("managers").emit("manager:playersOnline", getOnlinePlayers());
+  };
+
+  const publishRosterSnapshot = async () => {
+    const players = await repository.getPlayers();
+    io.to("managers").emit("manager:rosterSnapshot", { players });
   };
 
   const initializeManager = async (socket) => {
     socket.join("managers");
-    if (socket.data.managerInitialized) return;
-    socket.data.managerInitialized = true;
-    const [submissions, targets] = await Promise.all([
+    const [submissions, targets, players] = await Promise.all([
       repository.getSubmissions(),
       repository.getTargets(),
+      repository.getPlayers(),
     ]);
     socket.emit("manager:historySnapshot", { logs: submissions });
+    socket.emit("manager:rosterSnapshot", { players });
     socket.emit("targets:current", targets);
-    socket.emit("manager:playersOnline", [...new Set(connectedPlayers.values())]);
+    socket.emit("manager:playersOnline", getOnlinePlayers());
   };
 
   io.on("connection", async (socket) => {
@@ -65,6 +72,7 @@ export function registerSocketHandlers(io, repository) {
       socket.join("players");
       connectedPlayers.set(socket.id, profile.username);
       publishPlayerPresence();
+      publishRosterSnapshot().catch((error) => console.error("Could not publish player roster:", error));
     } else if (profile.role === "manager") {
       initializeManager(socket).catch((error) => console.error("Could not initialize manager:", error));
     }
@@ -74,6 +82,7 @@ export function registerSocketHandlers(io, repository) {
       socket.join("players");
       connectedPlayers.set(socket.id, profile.username);
       publishPlayerPresence();
+      publishRosterSnapshot().catch((error) => console.error("Could not publish player roster:", error));
     });
 
     socket.on("manager:join", () => {

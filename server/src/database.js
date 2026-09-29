@@ -90,6 +90,20 @@ export class PostgresRepository {
     return result.rows[0] || null;
   }
 
+  async getPlayers() {
+    const result = await this.pool.query(
+      `SELECT id, username, created_at
+       FROM users
+       WHERE role = 'player'
+       ORDER BY LOWER(username), id`,
+    );
+    return result.rows.map((row) => ({
+      id: row.id,
+      name: row.username,
+      createdAt: new Date(row.created_at).toISOString(),
+    }));
+  }
+
   async getTargets() {
     const result = await this.pool.query(
       `SELECT dm_matches_required, dm_placement_limit, range_rounds_required, range_min_score
