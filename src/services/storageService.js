@@ -11,8 +11,9 @@ export async function saveLocalProfile(profile) {
   const username = String(profile?.username || "").trim();
   const role = profile?.role === "manager" ? "manager" : profile?.role === "player" ? "player" : "";
   const token = String(profile?.token || "");
-  if (!username || !role || !token) throw new Error("A complete authenticated profile is required.");
-  const savedProfile = { id: Number(profile.id), username, role, token };
+  const teamCode = String(profile?.teamCode || "").trim().toUpperCase();
+  if (!username || !role || !token || !/^[A-Z0-9]{4}$/.test(teamCode)) throw new Error("A complete authenticated profile is required.");
+  const savedProfile = { id: Number(profile.id), username, role, teamCode, token };
   await appStateStore.setItem(LOCAL_PROFILE_KEY, savedProfile);
   await appStateStore.removeItem(LEGACY_LOCAL_USERS_KEY).catch(() => {});
   if (role === "player") await appStateStore.setItem(LAST_PLAYER_NAME_KEY, username);
@@ -21,8 +22,8 @@ export async function saveLocalProfile(profile) {
 
 export async function getLocalProfile() {
   const profile = await appStateStore.getItem(LOCAL_PROFILE_KEY);
-  if (!profile?.username || !profile?.token || !["player", "manager"].includes(profile.role)) return null;
-  return { id: Number(profile.id), username: String(profile.username).trim(), role: profile.role, token: profile.token };
+  if (!profile?.username || !profile?.token || !["player", "manager"].includes(profile.role) || !/^[A-Z0-9]{4}$/.test(String(profile.teamCode || ""))) return null;
+  return { id: Number(profile.id), username: String(profile.username).trim(), role: profile.role, teamCode: profile.teamCode, token: profile.token };
 }
 
 export async function clearLocalProfile() {

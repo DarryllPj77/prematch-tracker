@@ -34,55 +34,66 @@ function normalizeTargets(nextTargets, currentTargets) {
 
 export function registerSocketHandlers(io, repository) {
   const connectedPlayers = new Map();
+  const teamRoom = (teamCode) => `team:${teamCode}`;
+  const managerRoom = (teamCode) => `${teamRoom(teamCode)}:managers`;
+  const playerRoom = (teamCode) => `${teamRoom(teamCode)}:players`;
 
-  const getOnlinePlayers = () => [...new Set(connectedPlayers.values())]
+  const getOnlinePlayers = (teamCode) => [...new Set(
+    [...connectedPlayers.values()]
+      .filter((player) => player.teamCode === teamCode)
+      .map((player) => player.name),
+  )]
     .sort((left, right) => left.localeCompare(right));
 
-  const publishPlayerPresence = () => {
-    io.to("managers").emit("manager:playersOnline", getOnlinePlayers());
+  const publishPlayerPresence = (teamCode) => {
+    io.to(managerRoom(teamCode)).emit("manager:playersOnline", getOnlinePlayers(teamCode));
   };
 
-  const publishRosterSnapshot = async () => {
-    const players = await repository.getPlayers();
-    io.to("managers").emit("manager:rosterSnapshot", { players });
+  const publishRosterSnapshot = async (teamCode) => {
+    const players = await repository.getPlayers(teamCode);
+    io.to(managerRoom(teamCode)).emit("manager:rosterSnapshot", { players });
   };
 
   const initializeManager = async (socket) => {
-    socket.join("managers");
+    const { teamCode } = socket.data.profile;
+    socket.join(teamRoom(teamCode));
+    socket.join(managerRoom(teamCode));
     const [submissions, targets, players] = await Promise.all([
-      repository.getSubmissions(),
-      repository.getTargets(),
-      repository.getPlayers(),
+      repository.getSubmissions({ teamCode }),
+      repository.getTargets(teamCode),
+      repository.getPlayers(teamCode),
     ]);
     socket.emit("manager:historySnapshot", { logs: submissions });
     socket.emit("manager:rosterSnapshot", { players });
     socket.emit("targets:current", targets);
-    socket.emit("manager:playersOnline", getOnlinePlayers());
+    socket.emit("manager:playersOnline", getOnlinePlayers(teamCode));
   };
 
   io.on("connection", async (socket) => {
     const profile = socket.data.profile;
     try {
-      socket.emit("targets:current", await repository.getTargets());
+      socket.emit("targets:current", await repository.getTargets(profile.teamCode));
     } catch (error) {
       console.error("Could not load target settings:", error);
     }
 
     if (profile.role === "player") {
-      socket.join("players");
-      connectedPlayers.set(socket.id, profile.username);
-      publishPlayerPresence();
-      publishRosterSnapshot().catch((error) => console.error("Could not publish player roster:", error));
+      socket.join(teamRoom(profile.teamCode));
+      socket.join(playerRoom(profile.teamCode));
+      connectedPlayers.set(socket.id, { name: profile.username, teamCode: profile.teamCode });
+      publishPlayerPresence(profile.teamCode);
+      publishRosterSnapshot(profile.teamCode).catch((error) => console.error("Could not publish player roster:", error));
     } else if (profile.role === "manager") {
       initializeManager(socket).catch((error) => console.error("Could not initialize manager:", error));
     }
 
     socket.on("player:join", () => {
       if (profile.role !== "player") return;
-      socket.join("players");
-      connectedPlayers.set(socket.id, profile.username);
-      publishPlayerPresence();
-      publishRosterSnapshot().catch((error) => console.error("Could not publish player roster:", error));
+      socket.join(teamRoom(profile.teamCode));
+      socket.join(playerRoom(profile.teamCode));
+      connectedPlayers.set(socket.id, { name: profile.username, teamCode: profile.teamCode });
+      publishPlayerPresence(profile.teamCode);
+      publishRosterSnapshot(profile.teamCode).catch((error) => console.error("Could not publish player roster:", error));
     });
 
     socket.on("manager:join", () => {
@@ -103,7 +114,7 @@ export function registerSocketHandlers(io, repository) {
 
       try {
         const playerId = toPlayerId(profile.username);
-        const requirementsSnapshot = createRequirementsSnapshot(await repository.getTargets());
+        const requirementsSnapshot = createRequirementsSnapshot(await repository.getTargets(profile.teamCode));
         const draft = {
           dmResults: Array.isArray(payload.dmResults) ? payload.dmResults : [],
           rangeResults: Array.isArray(payload.rangeResults) ? payload.rangeResults : [],
@@ -128,7 +139,7 @@ export function registerSocketHandlers(io, repository) {
           submittedAt: payload.timestamp || new Date().toISOString(),
         }, profile.id);
 
-        io.to("managers").emit("manager:newSubmission", submission);
+        io.to(managerRoom(profile.teamCode)).emit("manager:newSubmission", submission);
         acknowledge({ ok: true, submission });
       } catch (error) {
         acknowledgeError(acknowledge, error);
@@ -147,14 +158,14 @@ export function registerSocketHandlers(io, repository) {
       }
 
       try {
-        const removed = await repository.deleteSubmission(submissionId);
+        const removed = await repository.deleteSubmission(submissionId, profile.teamCode);
         if (!removed) {
           acknowledge({ ok: false, error: "Submission was not found." });
           return;
         }
         const deletion = { ...removed, deletedAt: new Date().toISOString() };
-        io.to("managers").emit("manager:submissionDeleted", deletion);
-        io.to("players").emit("player:submissionDeleted", deletion);
+        io.to(managerRoom(profile.teamCode)).emit("manager:submissionDeleted", deletion);
+        io.to(playerRoom(profile.teamCode)).emit("player:submissionDeleted", deletion);
         acknowledge({ ok: true, deletion });
       } catch (error) {
         acknowledgeError(acknowledge, error);
@@ -167,10 +178,10 @@ export function registerSocketHandlers(io, repository) {
         return;
       }
       try {
-        const currentTargets = await repository.getTargets();
+        const currentTargets = await repository.getTargets(profile.teamCode);
         const normalized = normalizeTargets(nextTargets, currentTargets);
-        const saved = await repository.saveTargets(normalized, profile.id);
-        io.to(["managers", "players"]).emit("targets:updated", saved);
+        const saved = await repository.saveTargets(profile.teamCode, normalized, profile.id);
+        io.to(teamRoom(profile.teamCode)).emit("targets:updated", saved);
         acknowledge({ ok: true, targets: saved });
       } catch (error) {
         acknowledgeError(acknowledge, error);
@@ -178,7 +189,8 @@ export function registerSocketHandlers(io, repository) {
     });
 
     socket.on("disconnect", () => {
-      if (connectedPlayers.delete(socket.id)) publishPlayerPresence();
+      const player = connectedPlayers.get(socket.id);
+      if (connectedPlayers.delete(socket.id) && player) publishPlayerPresence(player.teamCode);
     });
   });
 }

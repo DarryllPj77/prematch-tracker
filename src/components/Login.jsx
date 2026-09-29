@@ -9,6 +9,7 @@ export default function Login({ onLogin }) {
   const [pin, setPin] = useState("");
   const [role, setRole] = useState("");
   const [managerCode, setManagerCode] = useState("");
+  const [teamCode, setTeamCode] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const isRegister = mode === "register";
@@ -18,6 +19,7 @@ export default function Login({ onLogin }) {
     setPin("");
     setRole("");
     setManagerCode("");
+    setTeamCode("");
     setError("");
   };
 
@@ -31,12 +33,16 @@ export default function Login({ onLogin }) {
       setError("SELECT AN ACCESS ROLE.");
       return;
     }
+    if (isRegister && role === "player" && !/^[A-Z0-9]{4}$/.test(teamCode)) {
+      setError("ENTER A VALID 4-CHARACTER TEAM INVITE CODE.");
+      return;
+    }
 
     setSaving(true);
     setError("");
     try {
       const profile = isRegister
-        ? await registerUser({ username, pin, role, managerCode })
+        ? await registerUser({ username, pin, role, managerCode, teamCode })
         : await loginUser({ username, pin });
       onLogin(await saveLocalProfile(profile));
     } catch (submissionError) {
@@ -46,6 +52,10 @@ export default function Login({ onLogin }) {
         setError("INVALID CALLSIGN OR PIN.");
       } else if (submissionError?.code === "INVALID_MANAGER_CODE") {
         setError("INVALID MANAGER REGISTRATION CODE.");
+      } else if (submissionError?.code === "INVALID_TEAM_CODE") {
+        setError("INVALID TEAM CODE.");
+      } else if (submissionError?.code === "TEAM_ASSIGNMENT_REQUIRED") {
+        setError("THIS LEGACY ACCOUNT NEEDS A TEAM. REGISTER AGAIN WITH THE SAME CALLSIGN, PIN, AND A TEAM INVITE CODE.");
       } else if (submissionError?.code === "SERVER_UNAVAILABLE") {
         setError("PREMATCH SERVER UNAVAILABLE. TRY AGAIN WHEN THE SERVICE IS ONLINE.");
       } else {
@@ -82,6 +92,7 @@ export default function Login({ onLogin }) {
         </fieldset>}
 
         {isRegister && role === "manager" && <label>MANAGER REGISTRATION CODE<input type="password" autoComplete="off" value={managerCode} onChange={(event) => setManagerCode(event.target.value)} placeholder="Enter deployment manager code" /></label>}
+        {isRegister && role === "player" && <label>TEAM INVITE CODE<input type="text" autoComplete="off" inputMode="text" maxLength="4" pattern="[A-Za-z0-9]{4}" value={teamCode} onChange={(event) => setTeamCode(event.target.value.replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 4))} placeholder="e.g. K9X2" /></label>}
 
         {error && <div className="login-error" role="alert">{error}</div>}
         <button className="btn-primary login-submit" type="submit" disabled={saving}>{saving ? "PROCESSING..." : isRegister ? "REGISTER & ENTER" : "AUTHENTICATE"}</button>

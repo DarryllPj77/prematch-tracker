@@ -83,7 +83,7 @@ function formatSubmissionTime(timestamp) {
   return date.toLocaleString([], { month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-export default function ManagerDashboard() {
+export default function ManagerDashboard({ profile }) {
   const [targets, setTargets] = useState(socketService.getTargets() || fallbackTargets);
   const [submissions, setSubmissions] = useState([]);
   const [registeredPlayers, setRegisteredPlayers] = useState([]);
@@ -97,6 +97,7 @@ export default function ManagerDashboard() {
   const [deleteError, setDeleteError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyError, setHistoryError] = useState(false);
+  const [teamCodeCopied, setTeamCodeCopied] = useState(false);
 
   useEffect(() => {
     const current = (value) => setTargets(value);
@@ -224,10 +225,26 @@ export default function ManagerDashboard() {
     }
   };
 
+  const copyTeamCode = async () => {
+    try {
+      await navigator.clipboard.writeText(profile.teamCode);
+      setTeamCodeCopied(true);
+    } catch {
+      setTeamCodeCopied(false);
+    }
+  };
+
   return <section className="dashboard">
     <header className="dashboard-head">
       <div><div className="eyebrow">COMMAND CENTER / LIVE RELAY</div><h1>MANAGER <span>FEED</span></h1></div>
-      <button className="btn-ghost" type="button" onClick={() => setSettingsOpen(true)}>TARGET SETTINGS</button>
+      <div className="manager-head-actions">
+        <div className="team-code-card">
+          <span>TEAM INVITE CODE</span>
+          <strong>{profile.teamCode}</strong>
+          <button type="button" onClick={copyTeamCode}>{teamCodeCopied ? "COPIED" : "COPY CODE"}</button>
+        </div>
+        <button className="btn-ghost" type="button" onClick={() => setSettingsOpen(true)}>TARGET SETTINGS</button>
+      </div>
     </header>
 
     <div className="dashboard-grid">

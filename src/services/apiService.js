@@ -24,10 +24,10 @@ async function request(path, { token, ...options } = {}) {
   return payload;
 }
 
-export function registerUser({ username, pin, role, managerCode }) {
+export function registerUser({ username, pin, role, managerCode, teamCode }) {
   return request("/api/auth/register", {
     method: "POST",
-    body: JSON.stringify({ username, pin, role, managerCode }),
+    body: JSON.stringify({ username, pin, role, managerCode, teamCode }),
   });
 }
 

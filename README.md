@@ -6,6 +6,8 @@ PreMatch Tracker is a React application for recording player practice submission
 
 - Separate player and manager dashboards
 - Persistent callsign and four-digit PIN accounts with hashed PINs
+- Manager-owned teams with permanent four-character invite codes
+- Team-isolated rosters, submissions, presence, and target settings
 - Player drill-result and screenshot submissions
 - Manager attendance, history, player-presence, and target views
 - Requirements snapshotting for historically accurate grading
@@ -122,6 +124,8 @@ npm start         # Start the server with Node.js
 ## Data and security notes
 
 Accounts, target settings, submission metadata, requirements snapshots, and attendance history are stored in PostgreSQL. PINs are hashed with bcrypt, and authenticated API and Socket.io requests use signed JSON Web Tokens.
+
+Each manager receives a permanent team invite code during registration. Players must provide a valid manager code when registering, and all manager/player Socket.io traffic and database queries are scoped to that team. After upgrading an older deployment, existing managers receive codes automatically. Legacy players remain unassigned for privacy and can join the correct team by registering again with their existing callsign and PIN plus that manager's team code.
 
 Screenshot blobs remain in LocalForage on the browser that uploaded them. Their metadata is persisted, but viewing the actual image from another browser requires a future object-storage integration. Never expose `DATABASE_URL`, `JWT_SECRET`, or `MANAGER_SIGNUP_CODE` through a `VITE_*` variable.
 

@@ -1,3 +1,44 @@
+.manager-head-actions {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+}
+
+.team-code-card {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: .2rem .7rem;
+  border: 1px solid rgba(85, 231, 240, .5);
+  padding: .55rem .7rem;
+  background: rgba(85, 231, 240, .06);
+}
+
+.team-code-card span {
+  color: var(--muted);
+  font-size: .46rem;
+  letter-spacing: .1em;
+}
+
+.team-code-card strong {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  color: var(--cyan);
+  font-size: 1.55rem;
+  letter-spacing: .16em;
+}
+
+.team-code-card button {
+  justify-self: start;
+  border: 0;
+  border-bottom: 1px solid rgba(85, 231, 240, .5);
+  padding: 0;
+  color: var(--ink);
+  background: transparent;
+  font-size: .45rem;
+  cursor: pointer;
+}
+
 .dashboard-grid {
   grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
   gap: 1.5rem;
@@ -560,6 +601,11 @@
 }
 
 @media (max-width: 700px) {
+  .manager-head-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .dashboard-sidebar,
   .submission-detail-data {
     grid-template-columns: 1fr;
