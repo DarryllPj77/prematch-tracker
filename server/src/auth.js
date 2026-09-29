@@ -9,6 +9,10 @@ function createAuthError(message, code, status = 400) {
   return error;
 }
 
+function normalizeUsername(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
 function validateCredentials({ username, pin }) {
   const normalizedUsername = String(username || "").trim();
   const normalizedPin = String(pin || "");
@@ -46,6 +50,21 @@ export function createAuthService({ repository, jwtSecret, managerSignupCode }) 
       throw createAuthError("Invalid session.", "INVALID_SESSION", 401);
     }
     return { id: Number(payload.sub), username: payload.username, role: payload.role, teamCode: normalizeTeamCode(payload.teamCode) };
+  };
+
+  const verifySession = async (token) => {
+    const profile = verifyToken(token);
+    const user = await repository.findUserById(profile.id);
+    const currentTeamCode = normalizeTeamCode(user?.team_code);
+    if (
+      !user
+      || user.role !== profile.role
+      || normalizeUsername(user.username) !== normalizeUsername(profile.username)
+      || currentTeamCode !== profile.teamCode
+    ) {
+      throw createAuthError("This session is no longer assigned to that team.", "INVALID_SESSION", 401);
+    }
+    return { id: Number(user.id), username: user.username, role: user.role, teamCode: currentTeamCode };
   };
 
   return {
@@ -107,6 +126,7 @@ export function createAuthService({ repository, jwtSecret, managerSignupCode }) 
     },
 
     verifyToken,
+    verifySession,
   };
 }
 

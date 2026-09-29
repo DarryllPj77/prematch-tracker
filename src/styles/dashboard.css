@@ -103,12 +103,26 @@
 }
 
 .roster-player {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  margin-bottom: .25rem;
+  padding: 0;
+  font-size: .7rem;
+}
+
+.roster-player-select {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  margin-bottom: .25rem;
+  min-width: 0;
+  border: 0;
   padding: .72rem .7rem;
-  font-size: .7rem;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
 }
 
 .roster-player:hover,
@@ -128,16 +142,55 @@
   box-shadow: inset 3px 0 var(--red), 0 0 18px rgba(255, 70, 85, .08);
 }
 
-.roster-player strong {
+.roster-player-select strong {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.roster-player small {
+.roster-player-select small {
   grid-column: 2;
   margin-top: .25rem;
   color: var(--muted);
   font-size: .48rem;
+}
+
+.roster-remove {
+  width: 1.8rem;
+  height: 1.8rem;
+  margin-right: .3rem;
+  border: 1px solid transparent;
+  clip-path: none;
+  color: var(--muted);
+  background: transparent;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .18s ease, color .18s ease, border-color .18s ease, background .18s ease;
+}
+
+.roster-player:hover .roster-remove,
+.roster-player:focus-within .roster-remove,
+.roster-remove:disabled {
+  opacity: 1;
+}
+
+.roster-remove:hover:not(:disabled),
+.roster-remove:focus-visible:not(:disabled) {
+  border-color: var(--red);
+  outline: none;
+  color: var(--red);
+  background: rgba(255, 70, 85, .12);
+}
+
+.roster-remove:disabled {
+  cursor: wait;
+}
+
+.roster-error {
+  padding: .55rem .4rem;
+  color: var(--red);
+  font-size: .5rem;
 }
 
 .roster-empty {

@@ -35,9 +35,9 @@ function sendError(response, error) {
   });
 }
 
-function requireSession(request, response, next) {
+async function requireSession(request, response, next) {
   try {
-    request.profile = authService.verifyToken(bearerToken(request));
+    request.profile = await authService.verifySession(bearerToken(request));
     next();
   } catch (error) {
     error.status = 401;
@@ -89,9 +89,9 @@ app.get("/api/submissions/mine", requireSession, async (request, response) => {
   }
 });
 
-io.use((socket, next) => {
+io.use(async (socket, next) => {
   try {
-    socket.data.profile = authService.verifyToken(socket.handshake.auth?.token);
+    socket.data.profile = await authService.verifySession(socket.handshake.auth?.token);
     next();
   } catch {
     next(new Error("Authentication required."));

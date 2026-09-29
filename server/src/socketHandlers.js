@@ -54,6 +54,22 @@ export function registerSocketHandlers(io, repository) {
     io.to(managerRoom(teamCode)).emit("manager:rosterSnapshot", { players });
   };
 
+  const kickConnectedPlayer = (removedPlayer, teamCode) => {
+    for (const [socketId, connectedPlayer] of connectedPlayers) {
+      if (connectedPlayer.teamCode !== teamCode || connectedPlayer.id !== removedPlayer.id) continue;
+      const playerSocket = io.sockets.sockets.get(socketId);
+      connectedPlayers.delete(socketId);
+      if (!playerSocket) continue;
+      playerSocket.emit("kicked_from_team", {
+        message: "You were removed from the team by the manager.",
+        teamCode,
+      });
+      playerSocket.leave(teamRoom(teamCode));
+      playerSocket.leave(playerRoom(teamCode));
+      setImmediate(() => playerSocket.disconnect(true));
+    }
+  };
+
   const initializeManager = async (socket) => {
     const { teamCode } = socket.data.profile;
     socket.join(teamRoom(teamCode));
@@ -80,7 +96,7 @@ export function registerSocketHandlers(io, repository) {
     if (profile.role === "player") {
       socket.join(teamRoom(profile.teamCode));
       socket.join(playerRoom(profile.teamCode));
-      connectedPlayers.set(socket.id, { name: profile.username, teamCode: profile.teamCode });
+      connectedPlayers.set(socket.id, { id: profile.id, name: profile.username, teamCode: profile.teamCode });
       publishPlayerPresence(profile.teamCode);
       publishRosterSnapshot(profile.teamCode).catch((error) => console.error("Could not publish player roster:", error));
     } else if (profile.role === "manager") {
@@ -91,7 +107,7 @@ export function registerSocketHandlers(io, repository) {
       if (profile.role !== "player") return;
       socket.join(teamRoom(profile.teamCode));
       socket.join(playerRoom(profile.teamCode));
-      connectedPlayers.set(socket.id, { name: profile.username, teamCode: profile.teamCode });
+      connectedPlayers.set(socket.id, { id: profile.id, name: profile.username, teamCode: profile.teamCode });
       publishPlayerPresence(profile.teamCode);
       publishRosterSnapshot(profile.teamCode).catch((error) => console.error("Could not publish player roster:", error));
     });
@@ -167,6 +183,32 @@ export function registerSocketHandlers(io, repository) {
         io.to(managerRoom(profile.teamCode)).emit("manager:submissionDeleted", deletion);
         io.to(playerRoom(profile.teamCode)).emit("player:submissionDeleted", deletion);
         acknowledge({ ok: true, deletion });
+      } catch (error) {
+        acknowledgeError(acknowledge, error);
+      }
+    });
+
+    socket.on("remove_player", async (payload = {}, acknowledge = () => {}) => {
+      if (profile.role !== "manager") {
+        acknowledge({ ok: false, error: "Manager access is required." });
+        return;
+      }
+      const callsign = String(payload.callsign || "").trim();
+      if (!callsign) {
+        acknowledge({ ok: false, error: "Player callsign is required." });
+        return;
+      }
+
+      try {
+        const removedPlayer = await repository.removePlayerFromTeam(callsign, profile.teamCode);
+        if (!removedPlayer) {
+          acknowledge({ ok: false, error: "Player was not found in your team." });
+          return;
+        }
+        kickConnectedPlayer(removedPlayer, profile.teamCode);
+        await publishRosterSnapshot(profile.teamCode);
+        publishPlayerPresence(profile.teamCode);
+        acknowledge({ ok: true, player: removedPlayer });
       } catch (error) {
         acknowledgeError(acknowledge, error);
       }

@@ -43,6 +43,23 @@ export default function App() {
     socketService.authenticate(profile);
   }, [profile]);
 
+  useEffect(() => {
+    if (profile?.role !== "player") return undefined;
+    let handlingKick = false;
+    const removeKickListener = socketService.on("kicked_from_team", async (payload = {}) => {
+      if (handlingKick) return;
+      handlingKick = true;
+      try {
+        await clearLocalProfile();
+      } finally {
+        socketService.disconnect();
+        setProfile(null);
+        window.alert(payload.message || "You were removed from the team by the manager.");
+      }
+    });
+    return removeKickListener;
+  }, [profile]);
+
   const logout = async () => {
     try {
       await clearLocalProfile();

@@ -138,6 +138,16 @@ export class PostgresRepository {
     return result.rows[0] || null;
   }
 
+  async findUserById(userId) {
+    const result = await this.pool.query(
+      `SELECT id, username, normalized_username, pin_hash, role, team_code, created_at
+       FROM users
+       WHERE id = $1`,
+      [userId],
+    );
+    return result.rows[0] || null;
+  }
+
   async findManagerByTeamCode(teamCode) {
     const result = await this.pool.query(
       `SELECT id, username, role, team_code, created_at
@@ -172,6 +182,20 @@ export class PostgresRepository {
       name: row.username,
       createdAt: new Date(row.created_at).toISOString(),
     }));
+  }
+
+  async removePlayerFromTeam(callsign, teamCode) {
+    const result = await this.pool.query(
+      `UPDATE users
+       SET team_code = NULL
+       WHERE role = 'player'
+         AND normalized_username = $1
+         AND team_code = $2
+       RETURNING id, username`,
+      [normalizeUsername(callsign), normalizeTeamCode(teamCode)],
+    );
+    const row = result.rows[0];
+    return row ? { id: Number(row.id), name: row.username } : null;
   }
 
   async getTargets(teamCode) {

@@ -27,6 +27,9 @@ describe("database-backed authentication", () => {
       async findUserByUsername(username) {
         return users.get(username.trim().toLowerCase()) || null;
       },
+      async findUserById(userId) {
+        return [...users.values()].find((user) => user.id === userId) || null;
+      },
       async findManagerByTeamCode(teamCode) {
         return [...users.values()].find((user) => user.role === "manager" && user.team_code === teamCode) || null;
       },
@@ -57,6 +60,7 @@ describe("database-backed authentication", () => {
     assert.notEqual(users.get("momo").pin_hash, "1234");
     assert.equal((await auth.login({ username: "momo", pin: "1234" })).teamCode, manager.teamCode);
     assert.equal(auth.verifyToken(player.token).teamCode, manager.teamCode);
+    assert.equal((await auth.verifySession(player.token)).teamCode, manager.teamCode);
 
     await assert.rejects(
       auth.register({ username: "Stranger", pin: "1111", role: "player", teamCode: "NOPE" }),
@@ -66,6 +70,12 @@ describe("database-backed authentication", () => {
     await assert.rejects(
       auth.register({ username: "Boss", pin: "4321", role: "manager", managerCode: "wrong" }),
       (error) => error.code === "INVALID_MANAGER_CODE",
+    );
+
+    users.get("momo").team_code = null;
+    await assert.rejects(
+      auth.verifySession(player.token),
+      (error) => error.code === "INVALID_SESSION",
     );
   });
 });
@@ -90,6 +100,13 @@ describe("persistent Socket.io workflow", () => {
   const repository = {
     async getPlayers(teamCode) {
       return registeredPlayers.filter((playerRecord) => playerRecord.teamCode === teamCode);
+    },
+    async removePlayerFromTeam(callsign, teamCode) {
+      const playerRecord = registeredPlayers.find((item) => item.name.toLowerCase() === callsign.toLowerCase() && item.teamCode === teamCode);
+      if (!playerRecord) return null;
+      playerRecord.teamCode = null;
+      playerTeams.set(playerRecord.id, null);
+      return { id: playerRecord.id, name: playerRecord.name };
     },
     async getTargets(teamCode) {
       return structuredClone(targetsByTeam.get(teamCode) || defaultTargets);
@@ -235,5 +252,22 @@ describe("persistent Socket.io workflow", () => {
     const replayedRosterPromise = once(refreshedManager, "manager:rosterSnapshot");
     refreshedManager.emit("manager:join");
     assert.deepEqual((await replayedRosterPromise).players.map((item) => item.name), ["Momo"]);
+
+    const crossTeamRemoval = await emitWithAck(otherManager, "remove_player", { callsign: "Momo" });
+    assert.equal(crossTeamRemoval.ok, false);
+
+    const onlineAgainPromise = once(refreshedManager, "manager:playersOnline");
+    player.connect();
+    await once(player, "connect");
+    assert.deepEqual(await onlineAgainPromise, ["Momo"]);
+
+    const kickedPromise = once(player, "kicked_from_team");
+    const updatedRosterPromise = once(refreshedManager, "manager:rosterSnapshot");
+    const updatedPresencePromise = once(refreshedManager, "manager:playersOnline");
+    const removalResponse = await emitWithAck(refreshedManager, "remove_player", { callsign: "Momo" });
+    assert.equal(removalResponse.ok, true);
+    assert.equal((await kickedPromise).message, "You were removed from the team by the manager.");
+    assert.deepEqual((await updatedRosterPromise).players, []);
+    assert.deepEqual(await updatedPresencePromise, []);
   });
 });

@@ -98,6 +98,8 @@ export default function ManagerDashboard({ profile }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyError, setHistoryError] = useState(false);
   const [teamCodeCopied, setTeamCodeCopied] = useState(false);
+  const [removingPlayer, setRemovingPlayer] = useState("");
+  const [rosterError, setRosterError] = useState("");
 
   useEffect(() => {
     const current = (value) => setTargets(value);
@@ -146,14 +148,14 @@ export default function ManagerDashboard({ profile }) {
     submissions.forEach((submission) => {
       const key = submission.playerName.toLowerCase();
       const existing = players.get(key);
-      if (!existing || existing.passed === null) {
-        players.set(key, { ...existing, name: submission.playerName, passed: submission.passed, online: false });
+      if (existing && existing.passed === null) {
+        players.set(key, { ...existing, passed: submission.passed });
       }
     });
     onlinePlayers.forEach((name) => {
       const key = name.toLowerCase();
       const existing = players.get(key);
-      players.set(key, existing ? { ...existing, online: true } : { name, passed: null, online: true });
+      if (existing) players.set(key, { ...existing, online: true });
     });
     return [...players.values()].sort((left, right) => left.name.localeCompare(right.name));
   }, [registeredPlayers, submissions, onlinePlayers]);
@@ -234,6 +236,23 @@ export default function ManagerDashboard({ profile }) {
     }
   };
 
+  const removePlayer = async (player) => {
+    if (!window.confirm(`Are you sure you want to remove ${player.name} from your team?`)) return;
+    setRemovingPlayer(player.name);
+    setRosterError("");
+    try {
+      await socketService.emitWithAck("remove_player", { callsign: player.name });
+      if (selectedPlayer.toLowerCase() === player.name.toLowerCase()) {
+        setSelectedPlayer("");
+        setSelectedSubmissionId("");
+      }
+    } catch (error) {
+      setRosterError(error.message || `Could not remove ${player.name}.`);
+    } finally {
+      setRemovingPlayer("");
+    }
+  };
+
   return <section className="dashboard">
     <header className="dashboard-head">
       <div><div className="eyebrow">COMMAND CENTER / LIVE RELAY</div><h1>MANAGER <span>FEED</span></h1></div>
@@ -254,13 +273,19 @@ export default function ManagerDashboard({ profile }) {
           <button className={`roster-filter${selectedPlayer ? "" : " is-selected"}`} type="button" onClick={() => { setSelectedPlayer(""); setSelectedSubmissionId(""); }}>ALL PLAYERS <span>{roster.length}</span></button>
           {roster.length === 0
             ? <div className="roster-empty">No players registered yet.</div>
-            : roster.map((player) => <button className={`roster-player${selectedPlayer.toLowerCase() === player.name.toLowerCase() ? " is-selected" : ""}`} type="button" key={player.name} onClick={() => selectPlayer(player.name)}>
-              <i className={`dot${player.online ? " online" : ""}`} />
-              <strong>{player.name}</strong>
-              <small>{player.online
-                ? `ONLINE${player.passed === null ? " / NO SUBMISSIONS" : player.passed ? " / LATEST RUN PASSED" : " / LATEST RUN FAILED"}`
-                : `OFFLINE${player.passed === null ? " / NO SUBMISSIONS" : player.passed ? " / LATEST RUN PASSED" : " / LATEST RUN FAILED"}`}</small>
-            </button>)}
+            : roster.map((player) => <div className={`roster-player${selectedPlayer.toLowerCase() === player.name.toLowerCase() ? " is-selected" : ""}`} key={player.id || player.name}>
+              <button className="roster-player-select" type="button" onClick={() => selectPlayer(player.name)}>
+                <i className={`dot${player.online ? " online" : ""}`} />
+                <strong>{player.name}</strong>
+                <small>{player.online
+                  ? `ONLINE${player.passed === null ? " / NO SUBMISSIONS" : player.passed ? " / LATEST RUN PASSED" : " / LATEST RUN FAILED"}`
+                  : `OFFLINE${player.passed === null ? " / NO SUBMISSIONS" : player.passed ? " / LATEST RUN PASSED" : " / LATEST RUN FAILED"}`}</small>
+              </button>
+              <button className="roster-remove" type="button" aria-label={`Remove ${player.name} from team`} title={`Remove ${player.name}`} disabled={removingPlayer === player.name} onClick={() => removePlayer(player)}>
+                {removingPlayer === player.name ? "..." : "×"}
+              </button>
+            </div>)}
+          {rosterError && <div className="roster-error" role="alert">{rosterError}</div>}
         </section>
 
         <ManagerAttendanceCalendar logs={submissions} selectedPlayer={selectedPlayer} selectedDate={selectedDate} onSelectDate={selectDate} />
