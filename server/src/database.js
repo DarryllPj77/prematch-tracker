@@ -338,7 +338,8 @@ export class PostgresRepository {
          AND submission.user_id = owner.id
          AND owner.team_code = $2
        RETURNING submission.submission_id, submission.player_id,
-                 submission.player_name, submission.submission_date`,
+                 submission.player_name, submission.submission_date,
+                 submission.screenshot_keys`,
       [submissionId, normalizeTeamCode(teamCode)],
     );
     const row = result.rows[0];
@@ -347,6 +348,7 @@ export class PostgresRepository {
       submissionId: row.submission_id,
       playerId: row.player_id,
       playerName: row.player_name,
+      screenshotKeys: Array.isArray(row.screenshot_keys) ? row.screenshot_keys : [],
       date: typeof row.submission_date === "string"
         ? row.submission_date.slice(0, 10)
         : new Date(row.submission_date).toISOString().slice(0, 10),

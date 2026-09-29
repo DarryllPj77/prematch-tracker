@@ -98,7 +98,7 @@ export default function ScreenshotModal({ preview, onClose }) {
         <div className="screenshot-modal-stage">
           {loading && <div className="screenshot-modal-message">LOADING FULL-RESOLUTION PROOF...</div>}
           {!loading && imageUrl && <img src={imageUrl} alt={`${preview.playerName} full-resolution warm-up proof`} />}
-          {!loading && !imageUrl && <div className="screenshot-modal-message is-expired">SCREENSHOT EXPIRED</div>}
+          {!loading && !imageUrl && <div className="screenshot-modal-message is-expired">SCREENSHOT UNAVAILABLE</div>}
         </div>
 
         <footer className="screenshot-modal-footer">

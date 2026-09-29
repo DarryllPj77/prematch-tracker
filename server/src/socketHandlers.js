@@ -32,7 +32,7 @@ function normalizeTargets(nextTargets, currentTargets) {
   };
 }
 
-export function registerSocketHandlers(io, repository) {
+export function registerSocketHandlers(io, repository, screenshotStorage = null) {
   const connectedPlayers = new Map();
   const teamRoom = (teamCode) => `team:${teamCode}`;
   const managerRoom = (teamCode) => `${teamRoom(teamCode)}:managers`;
@@ -131,6 +131,11 @@ export function registerSocketHandlers(io, repository) {
 
       try {
         const playerId = toPlayerId(profile.username);
+        const previousSubmissions = await repository.getSubmissions({
+          userId: profile.id,
+          date: payload.date,
+          limit: 1,
+        });
         const requirementsSnapshot = createRequirementsSnapshot(await repository.getTargets(profile.teamCode));
         const draft = {
           dmResults: Array.isArray(payload.dmResults) ? payload.dmResults : [],
@@ -148,13 +153,20 @@ export function registerSocketHandlers(io, repository) {
           dmResults: draft.dmResults,
           rangeResults: draft.rangeResults,
           requirementsSnapshot,
-          screenshotKeys: Array.isArray(payload.screenshotKeys) ? payload.screenshotKeys : [],
+          screenshotKeys: Array.isArray(payload.screenshotKeys)
+            ? payload.screenshotKeys.filter((key) => !String(key).startsWith("remote:") || screenshotStorage?.isOwnedKey(key, profile.teamCode))
+            : [],
           screenshotSlots: payload.screenshotSlots || { dm: [], range: [] },
           isAttended: attendance.isAttended,
           dmPassed: dmDrills.every((drill) => !drill.needsResubmit),
           rangePassed: rangeDrills.every((drill) => !drill.needsResubmit),
           submittedAt: payload.timestamp || new Date().toISOString(),
         }, profile.id);
+
+        const currentKeys = new Set(submission.screenshotKeys || []);
+        const obsoleteKeys = (previousSubmissions[0]?.screenshotKeys || []).filter((key) => !currentKeys.has(key));
+        screenshotStorage?.deleteMany(profile.teamCode, obsoleteKeys)
+          .catch((error) => console.error("Could not remove replaced screenshot objects:", error));
 
         io.to(managerRoom(profile.teamCode)).emit("manager:newSubmission", submission);
         acknowledge({ ok: true, submission });
@@ -181,6 +193,8 @@ export function registerSocketHandlers(io, repository) {
           return;
         }
         const deletion = { ...removed, deletedAt: new Date().toISOString() };
+        screenshotStorage?.deleteMany(profile.teamCode, removed.screenshotKeys || [])
+          .catch((error) => console.error("Could not remove deleted screenshot objects:", error));
         io.to(managerRoom(profile.teamCode)).emit("manager:submissionDeleted", deletion);
         io.to(playerRoom(profile.teamCode)).emit("player:submissionDeleted", deletion);
         acknowledge({ ok: true, deletion });

@@ -1,12 +1,23 @@
 # Render + Neon deployment
 
-## 1. Copy the Neon connection string
+## 1. Prepare the production Neon branch
 
-In the Neon project, select the `br-soft-violet-aojggyd1` branch and `neondb` database, click **Connect**, enable the pooled connection option, and copy the connection string.
+The private `prematch-screenshots` bucket is declared in `neon.ts`. Apply it to the production branch and pull that branch's database and storage variables:
 
-Never commit this value. It belongs only in the backend service's `DATABASE_URL` environment variable.
+```powershell
+neon checkout production
+neon deploy
+```
 
-## 2. Create the Render Blueprint
+Open the ignored `.env.local` file and use its production `DATABASE_URL` and four `AWS_*` values for Render. After copying them, restore the local development branch:
+
+```powershell
+neon checkout development
+```
+
+Never commit any value from `.env.local`. These values belong only in the backend service environment.
+
+## 2. Create or sync the Render Blueprint
 
 1. Push this repository to GitHub.
 2. In Render, choose **New > Blueprint**.
@@ -20,8 +31,15 @@ Provide these prompted values:
 - `DATABASE_URL`: the pooled Neon connection string
 - `MANAGER_SIGNUP_CODE`: a private code required when registering a manager
 - `CLIENT_ORIGIN`: the final frontend URL, such as `https://prematch-tracker.onrender.com`
+- `SCREENSHOT_BUCKET`: `prematch-screenshots`
+- `AWS_ACCESS_KEY_ID`: the production branch's Neon Object Storage access key
+- `AWS_SECRET_ACCESS_KEY`: the production branch's Neon Object Storage secret
+- `AWS_ENDPOINT_URL_S3`: the production branch's storage endpoint
+- `AWS_REGION`: the production branch's AWS region
 
 Render generates `JWT_SECRET` automatically.
+
+The Blueprint enables deploy-on-commit for both services. After adding the new storage variables, deploy `prematch-tracker-api` and confirm its health endpoint reports `"screenshotStorage":"configured"`.
 
 ### Frontend static site
 
@@ -41,7 +59,7 @@ https://YOUR-API-SERVICE.onrender.com/health
 Expected response:
 
 ```json
-{"ok":true,"database":"connected"}
+{"ok":true,"database":"connected","screenshotStorage":"configured"}
 ```
 
 Then open the frontend and verify:
@@ -52,10 +70,12 @@ Then open the frontend and verify:
 4. Confirm the player receives the settings in real time.
 5. Submit a player run.
 6. Confirm it appears in the manager dashboard.
-7. Log out and sign in from another browser to confirm users and history persist.
+7. Open the manager in another browser and confirm every screenshot loads.
+8. Log out and sign in from another browser to confirm users and history persist.
 
 ## Security notes
 
 - Never expose `DATABASE_URL`, `JWT_SECRET`, or `MANAGER_SIGNUP_CODE` through a `VITE_*` variable.
 - Rotate any secret that is accidentally committed or shared publicly.
-- Screenshot binaries remain browser-local. Persist them with object storage rather than PostgreSQL if cross-device image viewing is required.
+- Keep the bucket private. Storage credentials belong only on the backend service and must never use a `VITE_*` prefix.
+- Existing browser-only screenshots cannot be recovered automatically; players must submit new proof after this integration is deployed.

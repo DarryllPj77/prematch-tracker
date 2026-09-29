@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createRequirementsSnapshot, evaluateAttendance, formatDrillScore, getRequirementsSnapshot } from "../../shared/attendanceValidation.js";
 import { extractScoreFromImage } from "../services/mlStub.js";
 import { getMySubmissions } from "../services/apiService.js";
-import { deleteDailyLog, getSubmissionForPlayerDate, saveDailyLog, saveScreenshot, saveSubmissionData } from "../services/storageService.js";
+import { deleteDailyLog, deleteScreenshot, getSubmissionForPlayerDate, saveDailyLog, saveScreenshot, saveSubmissionData } from "../services/storageService.js";
 import * as socketService from "../services/socketService.js";
 import SubmissionCalendar from "./SubmissionCalendar.jsx";
 
@@ -184,19 +184,29 @@ export default function PlayerUploadForm({ profile }) {
   const handleScreenshot = async (type, index, file) => {
     if (!file) return;
     const uuid = crypto.randomUUID();
-    await saveScreenshot(uuid, file, {
-      capturedFor: `${type}-${index + 1}`,
-      logKey: `log:${toPlayerId(player.playerName)}:${selectedDate}`,
-    });
-    await extractScoreFromImage(file, type);
-    setScreenshots((current) => ({
-      ...current,
-      [type]: current[type].map((key, itemIndex) => itemIndex === index ? `shot:${uuid}` : key),
-    }));
+    const previousKey = screenshots[type][index];
+    try {
+      setMessage("Uploading screenshot proof...");
+      const screenshotKey = await saveScreenshot(uuid, file, {
+        capturedFor: `${type}-${index + 1}`,
+        logKey: `log:${toPlayerId(player.playerName)}:${selectedDate}`,
+      });
+      await extractScoreFromImage(file, type);
+      setScreenshots((current) => ({
+        ...current,
+        [type]: current[type].map((key, itemIndex) => itemIndex === index ? screenshotKey : key),
+      }));
+      if (previousKey && previousKey !== screenshotKey) deleteScreenshot(previousKey).catch(() => {});
+      setMessage("Screenshot uploaded securely.");
+    } catch {
+      setMessage("Screenshot upload failed. Check the server storage configuration and try again.");
+    }
   };
 
   const beginRetake = (type, index) => {
     const field = type === "dm" ? "placements" : "scores";
+    const previousKey = screenshots[type][index];
+    if (previousKey) deleteScreenshot(previousKey).catch(() => {});
     updateArray(field, index, "");
     setScreenshots((current) => ({
       ...current,

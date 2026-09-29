@@ -3,6 +3,7 @@ services:
     runtime: node
     name: prematch-tracker-api
     plan: free
+    autoDeployTrigger: commit
     buildCommand: npm ci --prefix server
     startCommand: npm start --prefix server
     healthCheckPath: /health
@@ -19,10 +20,21 @@ services:
         sync: false
       - key: CLIENT_ORIGIN
         sync: false
+      - key: SCREENSHOT_BUCKET
+        value: prematch-screenshots
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_ENDPOINT_URL_S3
+        sync: false
+      - key: AWS_REGION
+        sync: false
 
   - type: web
     runtime: static
     name: prematch-tracker
+    autoDeployTrigger: commit
     buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
     envVars:

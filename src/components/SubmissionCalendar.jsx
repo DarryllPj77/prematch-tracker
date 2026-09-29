@@ -64,12 +64,12 @@ function ScreenshotProofs({ screenshotKeys }) {
     };
   }, [keys]);
 
-  if (!keys.length) return <div className="calendar-expired">SCREENSHOT EXPIRED</div>;
+  if (!keys.length) return <div className="calendar-expired">NO SCREENSHOT SAVED</div>;
 
   return <div className="calendar-proofs">
     {proofs.map((proof, index) => proof.url
       ? <img key={proof.key} src={proof.url} alt={`Submission proof ${index + 1}`} />
-      : <div className="calendar-expired" key={proof.key}>SCREENSHOT EXPIRED</div>)}
+      : <div className="calendar-expired" key={proof.key}>SCREENSHOT UNAVAILABLE</div>)}
   </div>;
 }
 

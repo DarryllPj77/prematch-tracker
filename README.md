@@ -13,6 +13,7 @@ PreMatch Tracker is a React application for recording player practice submission
 - Requirements snapshotting for historically accurate grading
 - Real-time updates through Socket.io
 - PostgreSQL persistence with LocalForage caching
+- Private Neon Object Storage for cross-device screenshot proof
 - ONNX Runtime Web integration for client-side model inference
 
 ## Tech stack
@@ -22,6 +23,7 @@ PreMatch Tracker is a React application for recording player practice submission
 - Node.js and Express 5
 - Socket.io
 - PostgreSQL / Neon
+- Neon Object Storage (S3-compatible)
 - JSON Web Tokens and bcrypt
 
 ## Project structure
@@ -89,6 +91,11 @@ JWT_SECRET=prematch-local-development-jwt-secret-2026
 MANAGER_SIGNUP_CODE=LOCAL-MANAGER-CODE
 CLIENT_ORIGIN=http://localhost:5173
 PORT=3001
+SCREENSHOT_BUCKET=prematch-screenshots
+AWS_ACCESS_KEY_ID=your-neon-storage-access-key
+AWS_SECRET_ACCESS_KEY=your-neon-storage-secret-key
+AWS_ENDPOINT_URL_S3=your-neon-branch-storage-endpoint
+AWS_REGION=ap-southeast-1
 ```
 
 The server creates missing tables from `server/sql/schema.sql` when it starts. Never commit real `.env` files.
@@ -118,7 +125,7 @@ Accounts, target settings, submission metadata, requirements snapshots, and atte
 
 Each manager receives a permanent team invite code during registration. Players must provide a valid manager code when registering, and all manager/player Socket.io traffic and database queries are scoped to that team. After upgrading an older deployment, existing managers receive codes automatically. Legacy players remain unassigned for privacy and can join the correct team by registering again with their existing callsign and PIN plus that manager's team code.
 
-Screenshot blobs remain in LocalForage on the browser that uploaded them. Their metadata is persisted, but viewing the actual image from another browser requires a future object-storage integration. Never expose `DATABASE_URL`, `JWT_SECRET`, or `MANAGER_SIGNUP_CODE` through a `VITE_*` variable.
+Screenshot files are uploaded through the authenticated API to a private, team-scoped Neon Object Storage bucket. PostgreSQL stores only the object keys, and LocalForage acts as a short-lived browser cache. The API enforces team ownership for every upload and download. Never expose `DATABASE_URL`, `JWT_SECRET`, `MANAGER_SIGNUP_CODE`, or any `AWS_*` storage credential through a `VITE_*` variable.
 
 ## Deployment
 

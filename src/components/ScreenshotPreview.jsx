@@ -25,5 +25,5 @@ export default function ScreenshotPreview({ screenshotKey, onOpen }) {
     <button className="shot-button" type="button" onClick={(event) => { event.stopPropagation(); onOpen?.(); }} aria-label="Open full-screen match evidence">
       <img className="shot" src={url} alt="Match evidence" />
     </button>
-    : <div className="shot shot-empty">SCREENSHOT EXPIRED</div>;
+    : <div className="shot shot-empty">SCREENSHOT UNAVAILABLE</div>;
 }

@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { Server } from "socket.io";
 import { bearerToken, createAuthService } from "./auth.js";
 import { PostgresRepository } from "./database.js";
+import { createScreenshotStorage } from "./screenshotStorage.js";
 import { registerSocketHandlers } from "./socketHandlers.js";
 
 const serverDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -30,6 +31,7 @@ const clientOrigins = String(process.env.CLIENT_ORIGIN || "http://localhost:5173
   .map((origin) => origin.trim())
   .filter(Boolean);
 const repository = new PostgresRepository(databaseUrl);
+const screenshotStorage = createScreenshotStorage();
 const authService = createAuthService({
   repository,
   jwtSecret,
@@ -67,7 +69,11 @@ async function requireSession(request, response, next) {
 app.get("/health", async (_request, response) => {
   try {
     await repository.healthCheck();
-    response.json({ ok: true, database: "connected" });
+    response.json({
+      ok: true,
+      database: "connected",
+      screenshotStorage: screenshotStorage.configured ? "configured" : "unavailable",
+    });
   } catch {
     response.status(503).json({ ok: false, database: "unavailable" });
   }
@@ -107,6 +113,54 @@ app.get("/api/submissions/mine", requireSession, async (request, response) => {
   }
 });
 
+app.post(
+  "/api/screenshots",
+  requireSession,
+  express.raw({ type: "image/*", limit: "8mb" }),
+  async (request, response) => {
+    if (request.profile.role !== "player") {
+      response.status(403).json({ error: "Player access is required.", code: "FORBIDDEN" });
+      return;
+    }
+    try {
+      const screenshotKey = await screenshotStorage.upload({
+        profile: request.profile,
+        body: request.body,
+        contentType: String(request.headers["content-type"] || "").split(";")[0].toLowerCase(),
+        capturedFor: request.headers["x-screenshot-slot"],
+      });
+      response.status(201).json({ screenshotKey });
+    } catch (error) {
+      sendError(response, error);
+    }
+  },
+);
+
+app.get("/api/screenshots", requireSession, async (request, response) => {
+  try {
+    const screenshot = await screenshotStorage.download({
+      profile: request.profile,
+      screenshotKey: request.query.key,
+    });
+    response.set("Cache-Control", "private, max-age=300");
+    response.type(screenshot.contentType).send(screenshot.body);
+  } catch (error) {
+    sendError(response, error);
+  }
+});
+
+app.delete("/api/screenshots", requireSession, async (request, response) => {
+  try {
+    await screenshotStorage.deleteOne({
+      profile: request.profile,
+      screenshotKey: request.query.key,
+    });
+    response.status(204).end();
+  } catch (error) {
+    sendError(response, error);
+  }
+});
+
 io.use(async (socket, next) => {
   try {
     socket.data.profile = await authService.verifySession(socket.handshake.auth?.token);
@@ -120,7 +174,7 @@ const port = process.env.PORT || 3001;
 
 async function start() {
   await repository.initialize();
-  registerSocketHandlers(io, repository);
+  registerSocketHandlers(io, repository, screenshotStorage);
   httpServer.listen(port, "0.0.0.0", () => {
     console.log(`PreMatch server listening on port ${port} (${isProduction ? "production" : "local development"})`);
   });

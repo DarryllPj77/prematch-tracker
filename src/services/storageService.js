@@ -1,4 +1,5 @@
 import localforage from "localforage";
+import { downloadScreenshot, removeScreenshot, uploadScreenshot } from "./apiService.js";
 
 const logsStore = localforage.createInstance({ name: "preMatchTracker", storeName: "logsStore" });
 const mediaStore = localforage.createInstance({ name: "preMatchTracker", storeName: "mediaStore" });
@@ -118,11 +119,41 @@ export async function getAllLogs() {
 }
 
 export async function saveScreenshot(uuid, blob, meta) {
-  return mediaStore.setItem(`shot:${uuid}`, { blob, ...meta, createdAt: new Date().toISOString() });
+  const localKey = `shot:${uuid}`;
+  const createdAt = new Date().toISOString();
+  const localRecord = { blob, ...meta, createdAt };
+  await mediaStore.setItem(localKey, localRecord);
+
+  const profile = await getLocalProfile();
+  if (!profile?.token) return localKey;
+
+  const uploaded = await uploadScreenshot(profile.token, blob, meta);
+  const screenshotKey = String(uploaded?.screenshotKey || "");
+  if (!screenshotKey.startsWith("remote:")) throw new Error("The server returned an invalid screenshot key.");
+  await mediaStore.setItem(screenshotKey, { ...localRecord, remote: true });
+  await mediaStore.removeItem(localKey);
+  return screenshotKey;
 }
 
 export async function getScreenshot(uuid) {
-  return mediaStore.getItem(uuid.startsWith("shot:") ? uuid : `shot:${uuid}`);
+  const screenshotKey = uuid.startsWith("shot:") || uuid.startsWith("remote:") ? uuid : `shot:${uuid}`;
+  const cached = await mediaStore.getItem(screenshotKey);
+  if (cached?.blob || !screenshotKey.startsWith("remote:")) return cached;
+
+  const profile = await getLocalProfile();
+  if (!profile?.token) return null;
+  const blob = await downloadScreenshot(profile.token, screenshotKey);
+  const record = { blob, remote: true, createdAt: new Date().toISOString() };
+  await mediaStore.setItem(screenshotKey, record);
+  return record;
+}
+
+export async function deleteScreenshot(screenshotKey) {
+  if (!screenshotKey) return false;
+  await mediaStore.removeItem(screenshotKey);
+  if (!String(screenshotKey).startsWith("remote:")) return true;
+  const profile = await getLocalProfile();
+  return profile?.token ? removeScreenshot(profile.token, screenshotKey) : false;
 }
 
 export async function runRetentionCleanup() {
