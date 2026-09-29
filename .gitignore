@@ -51,3 +51,4 @@ Desktop.ini
 # Local Python environments (not part of the React/Node application)
 .venv/
 venv/
+.neon

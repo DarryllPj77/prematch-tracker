@@ -8,6 +8,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@neon/config": "^1.8.2",
+    "@neon/env": "^1.4.7",
     "localforage": "^1.10.0",
     "onnxruntime-web": "^1.30.0",
     "react": "^19.1.1",
