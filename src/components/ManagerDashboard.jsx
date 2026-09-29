@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { evaluateAttendance, formatDrillScore } from "../../shared/attendanceValidation.js";
 import * as socketService from "../services/socketService.js";
-import { deleteDailyLog, getAllLogs } from "../services/storageService.js";
+import { deleteDailyLog } from "../services/storageService.js";
 import ManagerAttendanceCalendar from "./ManagerAttendanceCalendar.jsx";
 import ScreenshotModal from "./ScreenshotModal.jsx";
 import ScreenshotPreview from "./ScreenshotPreview.jsx";
@@ -98,25 +98,15 @@ export default function ManagerDashboard() {
   const [historyError, setHistoryError] = useState(false);
 
   useEffect(() => {
-    let active = true;
-    getAllLogs()
-      .then((logs) => {
-        if (active) setSubmissions((current) => mergeSubmissions([...current, ...logs]));
-      })
-      .catch(() => {
-        if (active) setHistoryError(true);
-      });
-    return () => { active = false; };
-  }, []);
-
-  useEffect(() => {
     const current = (value) => setTargets(value);
     const incoming = (value) => setSubmissions((items) => mergeSubmissions([...items, value]));
     const historySnapshot = (value) => {
       if (Array.isArray(value?.logs)) {
-        setSubmissions((items) => mergeSubmissions([...items, ...value.logs]));
+        setSubmissions(mergeSubmissions(value.logs));
+        setHistoryError(false);
       }
     };
+    const connectionError = () => setHistoryError(true);
     const presence = (players) => setOnlinePlayers(Array.isArray(players) ? players : []);
     const deleted = (value) => {
       setSubmissions((items) => items.filter((item) => item.id !== value.submissionId));
@@ -131,8 +121,9 @@ export default function ManagerDashboard() {
     const removeHistorySnapshot = socketService.on("manager:historySnapshot", historySnapshot);
     const removePresence = socketService.on("manager:playersOnline", presence);
     const removeDeleted = socketService.on("manager:submissionDeleted", deleted);
+    const removeConnectionError = socketService.on("connect_error", connectionError);
     socketService.connect().emit("manager:join");
-    return () => { removeCurrent(); removeUpdated(); removeIncoming(); removeHistorySnapshot(); removePresence(); removeDeleted(); };
+    return () => { removeCurrent(); removeUpdated(); removeIncoming(); removeHistorySnapshot(); removePresence(); removeDeleted(); removeConnectionError(); };
   }, []);
 
   const roster = useMemo(() => {
@@ -184,26 +175,30 @@ export default function ManagerDashboard() {
     });
   };
 
-  const saveTargets = (nextTargets) => {
-    setTargets(nextTargets);
-    socketService.emit("manager:updateTargets", nextTargets);
-    setSettingsOpen(false);
+  const saveTargets = async (nextTargets) => {
+    try {
+      const response = await socketService.emitWithAck("manager:updateTargets", nextTargets);
+      setTargets(response.targets);
+      setSettingsOpen(false);
+    } catch {
+      setHistoryError(true);
+    }
   };
 
   const confirmDelete = async (submission) => {
     setDeletingId(submission.id);
     setDeleteError("");
     try {
-      await deleteDailyLog(submission);
-      setSubmissions((items) => items.filter((item) => item.id !== submission.id));
-      setSelectedSubmissionId((id) => id === submission.id ? "" : id);
-      setPreviewModal((preview) => preview?.submissionId === submission.id ? null : preview);
-      socketService.emit("delete_submission", {
+      await socketService.emitWithAck("delete_submission", {
         submissionId: submission.id,
         playerId: submission.playerId,
         playerName: submission.playerName,
         date: submission.date,
       });
+      await deleteDailyLog(submission);
+      setSubmissions((items) => items.filter((item) => item.id !== submission.id));
+      setSelectedSubmissionId((id) => id === submission.id ? "" : id);
+      setPreviewModal((preview) => preview?.submissionId === submission.id ? null : preview);
       setPendingDeleteId("");
     } catch {
       setDeleteError(`Could not delete ${submission.playerName}'s submission from local storage.`);
@@ -246,7 +241,7 @@ export default function ManagerDashboard() {
           {selectedDate && <button type="button" onClick={() => setSelectedDate("")}>DATE: {selectedDate} ×</button>}
         </div>}
 
-        {historyError && <div className="dashboard-notice">LOCAL HISTORY UNAVAILABLE — LIVE RELAY REMAINS ACTIVE</div>}
+        {historyError && <div className="dashboard-notice">DATABASE HISTORY UNAVAILABLE — CHECK THE SERVER CONNECTION</div>}
         {deleteError && <div className="dashboard-notice">{deleteError}</div>}
 
         {selectedSubmission && <section className="submission-detail cut-corner" aria-label={`${selectedSubmission.playerName} submission details`}>

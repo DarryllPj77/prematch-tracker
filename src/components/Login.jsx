@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { authenticateLocalUser, registerLocalUser } from "../services/storageService.js";
+import { loginUser, registerUser } from "../services/apiService.js";
+import { saveLocalProfile } from "../services/storageService.js";
 import "../styles/login.css";
 
 export default function Login({ onLogin }) {
@@ -7,6 +8,7 @@ export default function Login({ onLogin }) {
   const [username, setUsername] = useState("");
   const [pin, setPin] = useState("");
   const [role, setRole] = useState("");
+  const [managerCode, setManagerCode] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const isRegister = mode === "register";
@@ -15,6 +17,7 @@ export default function Login({ onLogin }) {
     setMode((currentMode) => currentMode === "login" ? "register" : "login");
     setPin("");
     setRole("");
+    setManagerCode("");
     setError("");
   };
 
@@ -33,16 +36,20 @@ export default function Login({ onLogin }) {
     setError("");
     try {
       const profile = isRegister
-        ? await registerLocalUser({ username, pin, role })
-        : await authenticateLocalUser({ username, pin });
-      onLogin(profile);
+        ? await registerUser({ username, pin, role, managerCode })
+        : await loginUser({ username, pin });
+      onLogin(await saveLocalProfile(profile));
     } catch (submissionError) {
       if (submissionError?.code === "USER_EXISTS") {
         setError("CALLSIGN ALREADY REGISTERED. LOG IN INSTEAD.");
       } else if (submissionError?.code === "INVALID_CREDENTIALS") {
         setError("INVALID CALLSIGN OR PIN.");
+      } else if (submissionError?.code === "INVALID_MANAGER_CODE") {
+        setError("INVALID MANAGER REGISTRATION CODE.");
+      } else if (submissionError?.code === "SERVER_UNAVAILABLE") {
+        setError("PREMATCH SERVER UNAVAILABLE. TRY AGAIN WHEN THE SERVICE IS ONLINE.");
       } else {
-        setError("LOCAL PROFILE COULD NOT BE ACCESSED. CHECK BROWSER STORAGE ACCESS.");
+        setError(submissionError?.message?.toUpperCase() || "AUTHENTICATION FAILED.");
       }
       setSaving(false);
     }
@@ -54,9 +61,9 @@ export default function Login({ onLogin }) {
         <div className="eyebrow">PREMATCH TRACKER / ACCESS GATE</div>
         <h1>{isRegister ? <>NEW AGENT<br /><span>REGISTRATION</span></> : <>SYSTEM<br /><span>LOGIN</span></>}</h1>
         <p>{isRegister
-          ? "Create a local identity for this device. Your assigned role controls which operational dashboard is mounted."
-          : "Authenticate with your registered callsign. Your saved role will route you into the correct operational environment."}</p>
-        <div className="login-signal" aria-hidden="true"><i /><span>LOCAL AUTHENTICATION PROTOCOL</span></div>
+          ? "Create a persistent identity. Your assigned role controls which operational dashboard is mounted."
+          : "Authenticate with your registered callsign. Your saved server role routes you into the correct operational environment."}</p>
+        <div className="login-signal" aria-hidden="true"><i /><span>SECURE SERVER AUTHENTICATION</span></div>
       </div>
 
       <form className="login-form" onSubmit={submit}>
@@ -74,13 +81,15 @@ export default function Login({ onLogin }) {
           </button>
         </fieldset>}
 
+        {isRegister && role === "manager" && <label>MANAGER REGISTRATION CODE<input type="password" autoComplete="off" value={managerCode} onChange={(event) => setManagerCode(event.target.value)} placeholder="Enter deployment manager code" /></label>}
+
         {error && <div className="login-error" role="alert">{error}</div>}
         <button className="btn-primary login-submit" type="submit" disabled={saving}>{saving ? "PROCESSING..." : isRegister ? "REGISTER & ENTER" : "AUTHENTICATE"}</button>
         <div className="login-mode-switch">
           <span>{isRegister ? "ALREADY REGISTERED?" : "NEW AGENT?"}</span>
           <button type="button" onClick={changeMode}>{isRegister ? "LOGIN" : "REGISTER HERE"}</button>
         </div>
-        <small className="login-storage-note">IDENTITY AND PIN ARE STORED LOCALLY IN THIS BROWSER.</small>
+        <small className="login-storage-note">ACCOUNTS ARE STORED SECURELY ON THE PREMATCH SERVER.</small>
       </form>
     </section>
   </main>;

@@ -1,21 +1,38 @@
-import { defaultTargets } from "./config/defaultTargets.js";
-import { evaluateAttendance } from "../../shared/attendanceValidation.js";
+import { createRequirementsSnapshot, evaluateAttendance } from "../../shared/attendanceValidation.js";
 
-const cloneTargets = () => structuredClone(defaultTargets);
-
-function getSubmissionId(submission = {}) {
-  const playerId = submission.playerId || String(submission.playerName || "unknown").trim().toLowerCase();
-  const date = submission.date || String(submission.timestamp || submission.receivedAt || "").slice(0, 10);
-  return submission.submissionId || `${playerId}:${date}`;
+function toPlayerId(playerName) {
+  return String(playerName || "").trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "player";
 }
 
-function isPassing(payload) {
-  return evaluateAttendance(payload).isAttended;
+function validDate(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
 }
 
-export function registerSocketHandlers(io) {
-  const targets = cloneTargets();
-  const recentSubmissions = [];
+function acknowledgeError(acknowledge, error) {
+  console.error(error);
+  acknowledge({ ok: false, error: "The server could not persist this change." });
+}
+
+function normalizeTargets(nextTargets, currentTargets) {
+  const snapshot = createRequirementsSnapshot({
+    dm: { ...currentTargets.dm, ...nextTargets?.dm },
+    range: { ...currentTargets.range, ...nextTargets?.range },
+  });
+  return {
+    dm: {
+      ...currentTargets.dm,
+      matchesRequired: snapshot.dmRequired,
+      placementLimit: snapshot.topPlacementLimit,
+    },
+    range: {
+      ...currentTargets.range,
+      roundsRequired: snapshot.rangeRequired,
+      minScore: snapshot.rangeMinScore,
+    },
+  };
+}
+
+export function registerSocketHandlers(io, repository) {
   const connectedPlayers = new Map();
 
   const publishPlayerPresence = () => {
@@ -23,95 +40,136 @@ export function registerSocketHandlers(io) {
     io.to("managers").emit("manager:playersOnline", players);
   };
 
-  const initializeManager = (socket) => {
+  const initializeManager = async (socket) => {
     socket.join("managers");
     if (socket.data.managerInitialized) return;
     socket.data.managerInitialized = true;
-    recentSubmissions.forEach((submission) => socket.emit("manager:newSubmission", submission));
+    const [submissions, targets] = await Promise.all([
+      repository.getSubmissions(),
+      repository.getTargets(),
+    ]);
+    socket.emit("manager:historySnapshot", { logs: submissions });
+    socket.emit("targets:current", targets);
     socket.emit("manager:playersOnline", [...new Set(connectedPlayers.values())]);
-    io.to("players").emit("manager:requestHistory", { requestId: socket.id });
   };
 
-  io.on("connection", (socket) => {
-    socket.emit("targets:current", targets);
+  io.on("connection", async (socket) => {
+    const profile = socket.data.profile;
+    try {
+      socket.emit("targets:current", await repository.getTargets());
+    } catch (error) {
+      console.error("Could not load target settings:", error);
+    }
 
-    socket.on("auth:identify", (payload = {}) => {
-      const username = String(payload.username || "").trim().slice(0, 32);
-      const role = payload.role === "manager" ? "manager" : payload.role === "player" ? "player" : "";
-      if (!username || !role) return;
+    if (profile.role === "player") {
+      socket.join("players");
+      connectedPlayers.set(socket.id, profile.username);
+      publishPlayerPresence();
+    } else if (profile.role === "manager") {
+      initializeManager(socket).catch((error) => console.error("Could not initialize manager:", error));
+    }
 
-      socket.data.profile = { username, role };
-      if (role === "player") {
-        socket.join("players");
-        connectedPlayers.set(socket.id, username);
-        publishPlayerPresence();
-        socket.emit("manager:requestHistory", {});
-      } else {
-        initializeManager(socket);
+    socket.on("player:join", () => {
+      if (profile.role !== "player") return;
+      socket.join("players");
+      connectedPlayers.set(socket.id, profile.username);
+      publishPlayerPresence();
+    });
+
+    socket.on("manager:join", () => {
+      if (profile.role === "manager") {
+        initializeManager(socket).catch((error) => console.error("Could not initialize manager:", error));
       }
     });
 
-    socket.on("player:join", () => {
-      if (socket.data.profile?.role === "player") socket.join("players");
-    });
-    socket.on("manager:join", () => {
-      if (socket.data.profile?.role === "manager") initializeManager(socket);
+    socket.on("player:submitCompletion", async (payload = {}, acknowledge = () => {}) => {
+      if (profile.role !== "player") {
+        acknowledge({ ok: false, error: "Player access is required." });
+        return;
+      }
+      if (!validDate(payload.date) || !payload.requirementsSnapshot) {
+        acknowledge({ ok: false, error: "Submission date and requirements snapshot are required." });
+        return;
+      }
+
+      try {
+        const playerId = toPlayerId(profile.username);
+        const requirementsSnapshot = createRequirementsSnapshot(await repository.getTargets());
+        const draft = {
+          dmResults: Array.isArray(payload.dmResults) ? payload.dmResults : [],
+          rangeResults: Array.isArray(payload.rangeResults) ? payload.rangeResults : [],
+          requirementsSnapshot,
+        };
+        const attendance = evaluateAttendance(draft);
+        const dmDrills = attendance.drills.filter((drill) => drill.type === "dm");
+        const rangeDrills = attendance.drills.filter((drill) => drill.type === "range");
+        const submission = await repository.upsertSubmission({
+          submissionId: `${playerId}:${payload.date}`,
+          playerId,
+          playerName: profile.username,
+          date: payload.date,
+          dmResults: draft.dmResults,
+          rangeResults: draft.rangeResults,
+          requirementsSnapshot,
+          screenshotKeys: Array.isArray(payload.screenshotKeys) ? payload.screenshotKeys : [],
+          screenshotSlots: payload.screenshotSlots || { dm: [], range: [] },
+          isAttended: attendance.isAttended,
+          dmPassed: dmDrills.every((drill) => !drill.needsResubmit),
+          rangePassed: rangeDrills.every((drill) => !drill.needsResubmit),
+          submittedAt: payload.timestamp || new Date().toISOString(),
+        }, profile.id);
+
+        io.to("managers").emit("manager:newSubmission", submission);
+        acknowledge({ ok: true, submission });
+      } catch (error) {
+        acknowledgeError(acknowledge, error);
+      }
     });
 
-    socket.on("player:historySnapshot", (payload = {}) => {
-      if (socket.data.profile?.role !== "player") return;
-      const logs = Array.isArray(payload.logs) ? payload.logs.slice(0, 500) : [];
-      const snapshot = { logs };
-      if (payload.requestId) io.to(payload.requestId).emit("manager:historySnapshot", snapshot);
-      else io.to("managers").emit("manager:historySnapshot", snapshot);
-    });
-
-    socket.on("player:submitCompletion", (payload = {}) => {
-      if (socket.data.profile?.role !== "player") return;
-      const submission = {
-        ...payload,
-        playerName: socket.data.profile.username,
-        submissionId: getSubmissionId(payload),
-        passed: isPassing(payload),
-        receivedAt: new Date().toISOString(),
-      };
-      const existingIndex = recentSubmissions.findIndex((item) => getSubmissionId(item) === submission.submissionId);
-      if (existingIndex >= 0) recentSubmissions.splice(existingIndex, 1);
-      recentSubmissions.unshift(submission);
-      recentSubmissions.splice(50);
-      io.to("managers").emit("manager:newSubmission", submission);
-    });
-
-    socket.on("delete_submission", (payload = {}) => {
-      if (socket.data.profile?.role !== "manager") return;
+    socket.on("delete_submission", async (payload = {}, acknowledge = () => {}) => {
+      if (profile.role !== "manager") {
+        acknowledge({ ok: false, error: "Manager access is required." });
+        return;
+      }
       const submissionId = String(payload.submissionId || "");
-      if (!submissionId) return;
+      if (!submissionId) {
+        acknowledge({ ok: false, error: "Submission ID is required." });
+        return;
+      }
 
-      const index = recentSubmissions.findIndex((submission) => getSubmissionId(submission) === submissionId);
-      if (index >= 0) recentSubmissions.splice(index, 1);
-
-      const deletion = {
-        submissionId,
-        playerId: payload.playerId,
-        playerName: payload.playerName,
-        date: payload.date,
-        deletedAt: new Date().toISOString(),
-      };
-      io.to("managers").emit("manager:submissionDeleted", deletion);
-      io.to("players").emit("player:submissionDeleted", deletion);
+      try {
+        const removed = await repository.deleteSubmission(submissionId);
+        if (!removed) {
+          acknowledge({ ok: false, error: "Submission was not found." });
+          return;
+        }
+        const deletion = { ...removed, deletedAt: new Date().toISOString() };
+        io.to("managers").emit("manager:submissionDeleted", deletion);
+        io.to("players").emit("player:submissionDeleted", deletion);
+        acknowledge({ ok: true, deletion });
+      } catch (error) {
+        acknowledgeError(acknowledge, error);
+      }
     });
 
-    socket.on("manager:updateTargets", (nextTargets = {}) => {
-      if (socket.data.profile?.role !== "manager") return;
-      if (nextTargets.dm) Object.assign(targets.dm, nextTargets.dm);
-      if (nextTargets.range) Object.assign(targets.range, nextTargets.range);
-      io.to(["managers", "players"]).emit("targets:updated", targets);
+    socket.on("manager:updateTargets", async (nextTargets = {}, acknowledge = () => {}) => {
+      if (profile.role !== "manager") {
+        acknowledge({ ok: false, error: "Manager access is required." });
+        return;
+      }
+      try {
+        const currentTargets = await repository.getTargets();
+        const normalized = normalizeTargets(nextTargets, currentTargets);
+        const saved = await repository.saveTargets(normalized, profile.id);
+        io.to(["managers", "players"]).emit("targets:updated", saved);
+        acknowledge({ ok: true, targets: saved });
+      } catch (error) {
+        acknowledgeError(acknowledge, error);
+      }
     });
 
     socket.on("disconnect", () => {
       if (connectedPlayers.delete(socket.id)) publishPlayerPresence();
     });
   });
-
-  return targets;
 }

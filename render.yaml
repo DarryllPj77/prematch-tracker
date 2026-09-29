@@ -1,0 +1,34 @@
+services:
+  - type: web
+    runtime: node
+    name: prematch-tracker-api
+    plan: free
+    buildCommand: npm ci --prefix server
+    startCommand: npm start --prefix server
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 22.12.0
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MANAGER_SIGNUP_CODE
+        sync: false
+      - key: CLIENT_ORIGIN
+        sync: false
+
+  - type: web
+    runtime: static
+    name: prematch-tracker
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: NODE_VERSION
+        value: 22.12.0
+      - key: VITE_API_URL
+        sync: false
+      - key: VITE_SOCKET_URL
+        sync: false

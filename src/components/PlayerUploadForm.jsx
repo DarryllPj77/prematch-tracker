@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { createRequirementsSnapshot, evaluateAttendance, formatDrillScore, getRequirementsSnapshot } from "../../shared/attendanceValidation.js";
 import { extractScoreFromImage } from "../services/mlStub.js";
-import { deleteDailyLog, getLogsForPlayer, getSubmissionForPlayerDate, saveScreenshot, saveSubmissionData } from "../services/storageService.js";
+import { getMySubmissions } from "../services/apiService.js";
+import { deleteDailyLog, getSubmissionForPlayerDate, saveDailyLog, saveScreenshot, saveSubmissionData } from "../services/storageService.js";
 import * as socketService from "../services/socketService.js";
 import SubmissionCalendar from "./SubmissionCalendar.jsx";
 
@@ -62,7 +63,16 @@ export default function PlayerUploadForm({ profile }) {
       setHydrating(true);
       try {
         const playerName = profile.username;
-        const selectedSubmission = await getSubmissionForPlayerDate(playerName, selectedDate);
+        let selectedSubmission = await getSubmissionForPlayerDate(playerName, selectedDate);
+        try {
+          const remoteSubmissions = await getMySubmissions(profile.token, selectedDate);
+          if (remoteSubmissions[0]) {
+            selectedSubmission = remoteSubmissions[0];
+            await saveDailyLog(selectedSubmission);
+          }
+        } catch {
+          // Use the LocalForage cache when the server is temporarily unavailable.
+        }
         const activeTargets = socketService.getTargets() || fallbackTargets;
         if (!active) return;
 
@@ -114,7 +124,18 @@ export default function PlayerUploadForm({ profile }) {
 
     loadSelectedSubmission();
     return () => { active = false; };
-  }, [profile.username, selectedDate]);
+  }, [profile.token, profile.username, selectedDate]);
+
+  useEffect(() => {
+    let active = true;
+    getMySubmissions(profile.token)
+      .then(async (submissions) => {
+        await Promise.all(submissions.map((submission) => saveDailyLog(submission)));
+        if (active) setCalendarRefreshKey((key) => key + 1);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [profile.token]);
 
   useEffect(() => {
     const update = (next) => {
@@ -138,25 +159,15 @@ export default function PlayerUploadForm({ profile }) {
         range: resizePreserving(current.range, next.range.roundsRequired, false),
       }));
     };
-    const sendHistorySnapshot = async ({ requestId } = {}) => {
-      try {
-        const logs = await getLogsForPlayer(profile.username);
-        socketService.emit("player:historySnapshot", { requestId, logs });
-      } catch {
-        socketService.emit("player:historySnapshot", { requestId, logs: [] });
-      }
-    };
     const removeCurrent = socketService.on("targets:current", update);
     const removeUpdated = socketService.on("targets:updated", update);
-    const removeHistoryRequest = socketService.on("manager:requestHistory", sendHistorySnapshot);
     const removeDeleted = socketService.on("player:submissionDeleted", (deletion) => {
       deleteDailyLog(deletion)
         .then(() => setCalendarRefreshKey((key) => key + 1))
         .catch(() => {});
     });
     socketService.connect().emit("player:join");
-    sendHistorySnapshot();
-    return () => { removeCurrent(); removeUpdated(); removeHistoryRequest(); removeDeleted(); };
+    return () => { removeCurrent(); removeUpdated(); removeDeleted(); };
   }, [profile.username, selectedDate]);
 
   const updateArray = (field, index, value) => {
@@ -235,32 +246,43 @@ export default function PlayerUploadForm({ profile }) {
       rangeResults: player.scores.map(Number),
       requirementsSnapshot,
       screenshotKeys: [...screenshots.dm, ...screenshots.range].filter(Boolean),
+      screenshotSlots: screenshots,
       timestamp: new Date().toISOString(),
     };
 
     try {
-      await saveSubmissionData({ logEntry: {
-        submissionId: payload.submissionId,
-        playerId: payload.playerId,
-        playerName: payload.playerName,
-        date,
-        dm: { matchesPlayed: payload.dmResults.length, placements: payload.dmResults, passed: dmDrills.every((drill) => !drill.needsResubmit) },
-        range: { roundsPlayed: payload.rangeResults.length, scores: payload.rangeResults, passed: rangeDrills.every((drill) => !drill.needsResubmit) },
-        isAttended: attendance.isAttended,
-        requirementsSnapshot,
-        screenshotKeys: payload.screenshotKeys,
-        screenshotSlots: screenshots,
-        submittedAt: payload.timestamp,
-      } });
-      socketService.emit("player:submitCompletion", payload);
-      setSubmittedAttendance(attendance);
-      setRetaking(createRetakeState(targets));
+      const response = await socketService.emitWithAck("player:submitCompletion", payload);
+      const persistedSubmission = response.submission || {
+          submissionId: payload.submissionId,
+          playerId: payload.playerId,
+          playerName: payload.playerName,
+          date,
+          dm: { matchesPlayed: payload.dmResults.length, placements: payload.dmResults, passed: dmDrills.every((drill) => !drill.needsResubmit) },
+          range: { roundsPlayed: payload.rangeResults.length, scores: payload.rangeResults, passed: rangeDrills.every((drill) => !drill.needsResubmit) },
+          isAttended: attendance.isAttended,
+          requirementsSnapshot,
+          screenshotKeys: payload.screenshotKeys,
+          screenshotSlots: screenshots,
+          submittedAt: payload.timestamp,
+        };
+      let cacheSaved = true;
+      try {
+        await saveSubmissionData({ logEntry: persistedSubmission });
+      } catch {
+        cacheSaved = false;
+      }
+      const persistedAttendance = evaluateAttendance(persistedSubmission);
+      const persistedTargets = targetsFromSnapshot(persistedAttendance.requirementsSnapshot, targets);
+      setTargets(persistedTargets);
+      setSubmittedAttendance(persistedAttendance);
+      setRetaking(createRetakeState(persistedTargets));
       setCalendarRefreshKey((key) => key + 1);
-      setMessage(attendance.isAttended
+      const resultMessage = persistedAttendance.isAttended
         ? "Attendance confirmed. Every required drill passed."
-        : "No attendance recorded. Re-take only the drills marked in red.");
+        : "No attendance recorded. Re-take only the drills marked in red.";
+      setMessage(cacheSaved ? resultMessage : `${resultMessage} Server saved; browser cache unavailable.`);
     } catch {
-      setMessage("Submission could not be saved locally. Check browser storage access and try again.");
+      setMessage("Submission could not be saved to the server database. Check the connection and try again.");
     }
   };
 
