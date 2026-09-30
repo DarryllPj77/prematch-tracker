@@ -45,7 +45,7 @@ describe("database-backed authentication", () => {
         return user;
       },
       async updateUserPin(userId, pinHash, teamCode) {
-        const user = [...users.values()].find((item) => item.id === userId && item.role === "player" && item.team_code === teamCode);
+        const user = [...users.values()].find((item) => item.id === userId && item.team_code === teamCode);
         if (!user) return null;
         user.pin_hash = pinHash;
         return user;
@@ -74,11 +74,11 @@ describe("database-backed authentication", () => {
       auth.resetPin({ callsign: "Momo", teamCode: "NOPE", newPin: "5678" }),
       (error) => error.code === "INVALID_RECOVERY",
     );
-    await assert.rejects(
-      auth.resetPin({ callsign: "Coach", teamCode: manager.teamCode, newPin: "5678" }),
-      (error) => error.code === "INVALID_RECOVERY",
-    );
-    const recoveredPlayer = await auth.resetPin({ callsign: "Momo", teamCode: manager.teamCode, newPin: "5678" });
+    const recoveredManager = await auth.resetPin({ callsign: " Coach ", teamCode: manager.teamCode.toLowerCase(), newPin: "8765" });
+    assert.equal(recoveredManager.role, "manager");
+    assert.equal((await auth.login({ username: "coach", pin: "8765" })).teamCode, manager.teamCode);
+
+    const recoveredPlayer = await auth.resetPin({ callsign: " Momo ", teamCode: manager.teamCode.toLowerCase(), newPin: "5678" });
     assert.equal(recoveredPlayer.username, "Momo");
     await assert.rejects(
       auth.login({ username: "Momo", pin: "1234" }),

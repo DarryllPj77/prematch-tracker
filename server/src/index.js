@@ -36,6 +36,7 @@ const authService = createAuthService({
   repository,
   jwtSecret,
   managerSignupCode,
+  authDebug: process.env.AUTH_DEBUG === "true",
 });
 const app = express();
 const httpServer = createServer(app);

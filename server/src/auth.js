@@ -33,7 +33,7 @@ function validateTeamName(value) {
   return teamName;
 }
 
-export function createAuthService({ repository, jwtSecret, managerSignupCode }) {
+export function createAuthService({ repository, jwtSecret, managerSignupCode, authDebug = false }) {
   if (!jwtSecret || jwtSecret.length < 32) {
     throw new Error("JWT_SECRET must contain at least 32 characters.");
   }
@@ -148,15 +148,39 @@ export function createAuthService({ repository, jwtSecret, managerSignupCode }) 
 
     async resetPin({ callsign, teamCode, newPin }) {
       const credentials = validateCredentials({ username: callsign, pin: newPin });
+      const normalizedCallsign = normalizeUsername(credentials.username);
       const requestedTeamCode = normalizeTeamCode(teamCode);
       const user = isValidTeamCode(requestedTeamCode)
         ? await repository.findUserByUsername(credentials.username)
         : null;
+      const storedTeamCode = normalizeTeamCode(user?.team_code);
+
+      if (authDebug) {
+        console.log("[auth:reset-pin] identity comparison", {
+          received: {
+            callsign: String(callsign || ""),
+            teamCode: String(teamCode || ""),
+          },
+          normalized: {
+            callsign: normalizedCallsign,
+            teamCode: requestedTeamCode,
+          },
+          stored: user ? {
+            callsign: user.username,
+            normalizedCallsign: normalizeUsername(user.username),
+            teamCode: storedTeamCode,
+            role: user.role,
+          } : null,
+          matches: {
+            callsign: Boolean(user) && normalizeUsername(user.username) === normalizedCallsign,
+            teamCode: Boolean(user) && storedTeamCode === requestedTeamCode,
+          },
+        });
+      }
 
       if (
         !user
-        || user.role !== "player"
-        || normalizeTeamCode(user.team_code) !== requestedTeamCode
+        || storedTeamCode !== requestedTeamCode
       ) {
         throw createAuthError("Invalid Callsign or Team Code", "INVALID_RECOVERY", 401);
       }
