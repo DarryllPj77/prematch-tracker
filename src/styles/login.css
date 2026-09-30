@@ -207,11 +207,25 @@
   letter-spacing: .08em;
 }
 
+.login-secondary-actions {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  width: 100%;
+  overflow: visible;
+  padding-inline: .75rem;
+}
+
 .login-mode-switch {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: .45rem;
+  overflow: visible;
   color: var(--muted);
   font-family: 'Space Mono', monospace;
   font-size: .5rem;
@@ -219,12 +233,17 @@
 }
 
 .login-mode-switch button {
+  width: auto;
+  min-width: max-content;
   border: 0;
   border-bottom: 1px solid rgba(255, 70, 85, .5);
-  padding: .1rem 0;
+  padding: .1rem .35rem;
   color: var(--red);
   background: transparent;
+  clip-path: none !important;
   font: inherit;
+  overflow: visible;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -237,15 +256,22 @@
 }
 
 .login-recovery-link {
+  position: relative;
+  z-index: 2;
   justify-self: center;
+  width: auto;
+  min-width: max-content;
   border: 0;
   border-bottom: 1px solid rgba(129, 144, 157, .45);
-  padding: .15rem 0;
+  padding: .15rem .4rem;
   color: var(--muted);
   background: transparent;
+  clip-path: none !important;
   font-family: 'Space Mono', monospace;
   font-size: .52rem;
   letter-spacing: .08em;
+  overflow: visible;
+  white-space: nowrap;
   cursor: pointer;
 }
 

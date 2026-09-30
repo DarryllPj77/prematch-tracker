@@ -140,13 +140,15 @@ export default function Login({ onLogin }) {
 
         {error && <div className="login-error" role="alert">{error}</div>}
         <button className="btn-primary login-submit" type="submit" disabled={saving}>{saving ? "PROCESSING..." : isResettingPin ? "RESET & LOGIN" : isRegister ? "REGISTER & ENTER" : "AUTHENTICATE"}</button>
-        {!isRegister && !isResettingPin && <button className="login-recovery-link" type="button" onClick={openPinRecovery}>FORGOT PIN?</button>}
-        {isResettingPin
-          ? <button className="login-recovery-link" type="button" onClick={returnToLogin}>CANCEL / BACK TO LOGIN</button>
-          : <div className="login-mode-switch">
-            <span>{isRegister ? "ALREADY REGISTERED?" : "NEW AGENT?"}</span>
-            <button type="button" onClick={changeMode}>{isRegister ? "LOGIN" : "REGISTER HERE"}</button>
-          </div>}
+        <div className="login-secondary-actions">
+          {!isRegister && !isResettingPin && <button className="login-recovery-link" type="button" onClick={openPinRecovery}>FORGOT PIN?</button>}
+          {isResettingPin
+            ? <button className="login-recovery-link" type="button" onClick={returnToLogin}>CANCEL / BACK TO LOGIN</button>
+            : <div className="login-mode-switch">
+              <span>{isRegister ? "ALREADY REGISTERED?" : "NEW AGENT?"}</span>
+              <button type="button" onClick={changeMode}>{isRegister ? "LOGIN" : "REGISTER HERE"}</button>
+            </div>}
+        </div>
         <small className="login-storage-note">ACCOUNTS ARE STORED SECURELY ON THE PREMATCH SERVER.</small>
       </form>
     </section>
