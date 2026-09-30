@@ -266,7 +266,10 @@ export default function ManagerDashboard({ profile }) {
         <div className="premier-team-heading premier-team-heading--manager">
           <span>PREMIER TEAM</span>
           <strong>{teamIdentity.teamName}</strong>
-          <small className="team-user-subtitle">MANAGER / {profile.username}</small>
+          <small className="team-user-subtitle">
+            <span className="user-role-label">MANAGER / </span>
+            <span className="user-callsign">{profile.username}</span>
+          </small>
         </div>
         <h1>MANAGER <span>FEED</span></h1>
       </div>

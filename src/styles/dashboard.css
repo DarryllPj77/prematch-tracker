@@ -111,6 +111,14 @@
   letter-spacing: .12em;
 }
 
+.team-user-subtitle .user-role-label {
+  text-transform: uppercase;
+}
+
+.team-user-subtitle .user-callsign {
+  text-transform: none;
+}
+
 .premier-team-heading > .team-roster-code {
   font-size: .62rem;
 }

@@ -79,7 +79,9 @@ export default function App() {
         <div className="session-identity">
           <span className="session-team-label">PREMIER TEAM</span>
           <strong className="session-team-name">{profile.teamName}</strong>
-          <small className="session-user"><b>{profile.role}</b> / {profile.username}</small>
+          <small className="session-user">
+            <b>{profile.role}</b> / <span className="user-callsign">{profile.username}</span>
+          </small>
         </div>
         <button className="session-logout" type="button" onClick={logout}>LOG OUT / CHANGE USER</button>
       </div>
