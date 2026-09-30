@@ -146,6 +146,29 @@ export function createAuthService({ repository, jwtSecret, managerSignupCode }) 
       return issueSession(user);
     },
 
+    async resetPin({ callsign, teamCode, newPin }) {
+      const credentials = validateCredentials({ username: callsign, pin: newPin });
+      const requestedTeamCode = normalizeTeamCode(teamCode);
+      const user = isValidTeamCode(requestedTeamCode)
+        ? await repository.findUserByUsername(credentials.username)
+        : null;
+
+      if (
+        !user
+        || user.role !== "player"
+        || normalizeTeamCode(user.team_code) !== requestedTeamCode
+      ) {
+        throw createAuthError("Invalid Callsign or Team Code", "INVALID_RECOVERY", 401);
+      }
+
+      const pinHash = await bcrypt.hash(credentials.pin, 12);
+      const updatedUser = await repository.updateUserPin(user.id, pinHash, requestedTeamCode);
+      if (!updatedUser) {
+        throw createAuthError("Invalid Callsign or Team Code", "INVALID_RECOVERY", 401);
+      }
+      return issueSession(updatedUser);
+    },
+
     verifyToken,
     verifySession,
   };

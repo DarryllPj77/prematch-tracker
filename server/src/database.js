@@ -158,6 +158,19 @@ export class PostgresRepository {
     return result.rows[0] || null;
   }
 
+  async updateUserPin(userId, pinHash, teamCode) {
+    const result = await this.pool.query(
+      `UPDATE users
+       SET pin_hash = $1
+       WHERE id = $2
+         AND role = 'player'
+         AND team_code = $3
+       RETURNING id, username, role, team_code, team_name, pin_hash, created_at`,
+      [pinHash, userId, normalizeTeamCode(teamCode)],
+    );
+    return result.rows[0] || null;
+  }
+
   async assignPlayerToTeam(userId, teamCode) {
     const result = await this.pool.query(
       `UPDATE users

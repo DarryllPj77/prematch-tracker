@@ -95,6 +95,14 @@ app.post("/api/auth/login", async (request, response) => {
   }
 });
 
+app.post("/api/auth/reset-pin", async (request, response) => {
+  try {
+    response.json(await authService.resetPin(request.body || {}));
+  } catch (error) {
+    sendError(response, error);
+  }
+});
+
 app.get("/api/auth/me", requireSession, (request, response) => {
   response.json(request.profile);
 });

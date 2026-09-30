@@ -44,6 +44,12 @@ describe("database-backed authentication", () => {
         users.set(username.toLowerCase(), user);
         return user;
       },
+      async updateUserPin(userId, pinHash, teamCode) {
+        const user = [...users.values()].find((item) => item.id === userId && item.role === "player" && item.team_code === teamCode);
+        if (!user) return null;
+        user.pin_hash = pinHash;
+        return user;
+      },
     };
     const auth = createAuthService({
       repository,
@@ -63,6 +69,22 @@ describe("database-backed authentication", () => {
     assert.equal((await auth.login({ username: "momo", pin: "1234" })).teamCode, manager.teamCode);
     assert.equal(auth.verifyToken(player.token).teamCode, manager.teamCode);
     assert.equal((await auth.verifySession(player.token)).teamCode, manager.teamCode);
+
+    await assert.rejects(
+      auth.resetPin({ callsign: "Momo", teamCode: "NOPE", newPin: "5678" }),
+      (error) => error.code === "INVALID_RECOVERY",
+    );
+    await assert.rejects(
+      auth.resetPin({ callsign: "Coach", teamCode: manager.teamCode, newPin: "5678" }),
+      (error) => error.code === "INVALID_RECOVERY",
+    );
+    const recoveredPlayer = await auth.resetPin({ callsign: "Momo", teamCode: manager.teamCode, newPin: "5678" });
+    assert.equal(recoveredPlayer.username, "Momo");
+    await assert.rejects(
+      auth.login({ username: "Momo", pin: "1234" }),
+      (error) => error.code === "INVALID_CREDENTIALS",
+    );
+    assert.equal((await auth.login({ username: "Momo", pin: "5678" })).teamCode, manager.teamCode);
 
     await assert.rejects(
       auth.register({ username: "Stranger", pin: "1111", role: "player", teamCode: "NOPE" }),

@@ -38,6 +38,13 @@ export function loginUser({ username, pin }) {
   });
 }
 
+export function resetPin({ callsign, teamCode, newPin }) {
+  return request("/api/auth/reset-pin", {
+    method: "POST",
+    body: JSON.stringify({ callsign, teamCode, newPin }),
+  });
+}
+
 export function getCurrentUser(token) {
   return request("/api/auth/me", { token });
 }

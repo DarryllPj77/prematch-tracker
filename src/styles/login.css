@@ -236,6 +236,26 @@
   text-shadow: -1px 0 var(--red), 1px 0 #55e7f0;
 }
 
+.login-recovery-link {
+  justify-self: center;
+  border: 0;
+  border-bottom: 1px solid rgba(129, 144, 157, .45);
+  padding: .15rem 0;
+  color: var(--muted);
+  background: transparent;
+  font-family: 'Space Mono', monospace;
+  font-size: .52rem;
+  letter-spacing: .08em;
+  cursor: pointer;
+}
+
+.login-recovery-link:hover,
+.login-recovery-link:focus-visible {
+  border-bottom-color: var(--red);
+  outline: none;
+  color: var(--red);
+}
+
 .profile-loading {
   display: grid;
   place-items: center;
