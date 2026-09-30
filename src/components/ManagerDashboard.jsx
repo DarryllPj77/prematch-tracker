@@ -268,7 +268,10 @@ export default function ManagerDashboard({ profile }) {
           <strong>{teamIdentity.teamName}</strong>
           <small className="team-user-subtitle">
             <span className="user-role-label">MANAGER / </span>
-            <span className="user-callsign">{profile.username}</span>
+            <span
+              className="user-callsign"
+              style={{ textTransform: "none", fontFamily: "'Space Mono', monospace", fontVariantCaps: "normal" }}
+            >{profile.username}</span>
           </small>
         </div>
         <h1>MANAGER <span>FEED</span></h1>

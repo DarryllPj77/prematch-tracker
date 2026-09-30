@@ -116,7 +116,9 @@
 }
 
 .team-user-subtitle .user-callsign {
-  text-transform: none;
+  font-family: 'Space Mono', monospace;
+  font-variant-caps: normal;
+  text-transform: none !important;
 }
 
 .premier-team-heading > .team-roster-code {

@@ -80,7 +80,10 @@ export default function App() {
           <span className="session-team-label">PREMIER TEAM</span>
           <strong className="session-team-name">{profile.teamName}</strong>
           <small className="session-user">
-            <b>{profile.role}</b> / <span className="user-callsign">{profile.username}</span>
+            <b>{profile.role}</b> / <span
+              className="user-callsign"
+              style={{ textTransform: "none", fontFamily: "'Space Mono', monospace", fontVariantCaps: "normal" }}
+            >{profile.username}</span>
           </small>
         </div>
         <button className="session-logout" type="button" onClick={logout}>LOG OUT / CHANGE USER</button>

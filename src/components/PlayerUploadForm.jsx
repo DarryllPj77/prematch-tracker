@@ -329,7 +329,10 @@ export default function PlayerUploadForm({ profile }) {
           <strong>{teamIdentity.teamName}</strong>
           <small className="team-user-subtitle">
             <span className="user-role-label">PLAYER / </span>
-            <span className="user-callsign">{profile.username}</span>
+            <span
+              className="user-callsign"
+              style={{ textTransform: "none", fontFamily: "'Space Mono', monospace", fontVariantCaps: "normal" }}
+            >{profile.username}</span>
           </small>
           <small className="team-roster-code">ROSTER CODE / {teamIdentity.teamCode}</small>
         </div>
