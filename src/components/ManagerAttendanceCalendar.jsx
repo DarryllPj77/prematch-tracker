@@ -41,9 +41,9 @@ export default function ManagerAttendanceCalendar({ logs, roster = [], selectedP
   }, { passed: 0, failed: 0, missed: 0 });
 
   const getAggregatedDotClass = (stats) => {
-    if (stats.missed > 0) return "calendar-dot-missed";
     if (stats.failed > 0) return "calendar-dot-fail";
     if (stats.passed > 0) return "calendar-dot-pass";
+    if (stats.missed > 0) return "calendar-dot-missed";
     return "";
   };
 
