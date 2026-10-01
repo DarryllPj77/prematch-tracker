@@ -155,13 +155,13 @@
   cursor: not-allowed;
 }
 
-.drill-entry .drill-score-input {
+.player-panel .drill-entry input.drill-score-input {
   display: block;
-  min-height: 5.5rem;
-  padding: .55rem 1rem;
+  min-height: 4.25rem;
+  padding: .65rem 1rem;
   color: var(--ink);
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: clamp(3rem, 5vw, 4rem);
+  font-size: 1.5rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -232,8 +232,7 @@
     text-align: left;
   }
 
-  .drill-entry .drill-score-input {
-    min-height: 4.75rem;
-    font-size: 3rem;
+  .player-panel .drill-entry input.drill-score-input {
+    min-height: 4rem;
   }
 }
