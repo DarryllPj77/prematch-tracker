@@ -1,0 +1,148 @@
+.screenshot-field {
+  display: grid;
+  gap: .45rem;
+}
+
+.screenshot-field > span {
+  color: var(--muted);
+  font-size: .7rem;
+  letter-spacing: .08em;
+}
+
+.image-dropzone {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 108px;
+  overflow: hidden;
+  border: 1px dashed rgba(129, 144, 157, .7);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  outline: none;
+  background: #0f1923;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.image-dropzone:hover,
+.image-dropzone:focus-visible {
+  border-color: rgba(255, 70, 85, .72);
+  background: rgba(255, 70, 85, .055);
+  box-shadow: inset 0 0 0 1px rgba(255, 70, 85, .14);
+}
+
+.image-dropzone.is-dragging {
+  border-color: #ff4655;
+  background: rgba(255, 70, 85, .14);
+  box-shadow: inset 0 0 0 1px #ff4655, 0 0 22px rgba(255, 70, 85, .2);
+  transform: translateY(-2px);
+}
+
+.image-dropzone.is-disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.image-dropzone-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.image-dropzone-prompt {
+  display: grid;
+  place-items: center;
+  gap: .42rem;
+  max-width: 25rem;
+  padding: 1rem;
+  text-align: center;
+}
+
+.image-dropzone-prompt strong {
+  color: var(--ink);
+  font-family: 'Space Mono', monospace;
+  font-size: .58rem;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+.image-dropzone-prompt small,
+.image-dropzone-replace,
+.image-dropzone-error {
+  font-size: .45rem;
+  letter-spacing: .1em;
+}
+
+.image-dropzone-icon {
+  display: grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border: 1px solid currentColor;
+  color: var(--red);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.image-dropzone-preview {
+  width: 100%;
+  height: 132px;
+  object-fit: contain;
+  background: #0b141d;
+}
+
+.image-dropzone-replace {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: .42rem 2.5rem .42rem .6rem;
+  color: var(--ink);
+  background: rgba(6, 12, 18, .84);
+}
+
+.image-dropzone-remove {
+  position: absolute;
+  top: .45rem;
+  right: .45rem;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--red);
+  padding: 0;
+  clip-path: none;
+  color: var(--ink);
+  background: rgba(15, 25, 35, .92);
+  cursor: pointer;
+}
+
+.image-dropzone-remove:hover,
+.image-dropzone-remove:focus-visible {
+  outline: none;
+  color: #0f1923;
+  background: var(--red);
+}
+
+.image-dropzone-error {
+  position: absolute;
+  top: .5rem;
+  left: .5rem;
+  padding: .3rem .4rem;
+  color: var(--red);
+  background: rgba(15, 25, 35, .9);
+}
+
+@media (max-width: 600px) {
+  .image-dropzone {
+    min-height: 96px;
+  }
+
+  .image-dropzone-preview {
+    height: 116px;
+  }
+}

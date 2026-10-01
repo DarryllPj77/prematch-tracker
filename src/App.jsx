@@ -10,6 +10,7 @@ import "./styles/theme.css";
 import "./styles/animations.css";
 import "./styles/dashboard.css";
 import "./styles/drill-performance.css";
+import "./styles/image-dropzone.css";
 
 export default function App() {
   const [profile, setProfile] = useState(null);

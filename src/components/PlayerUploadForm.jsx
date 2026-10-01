@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createRequirementsSnapshot, evaluateAttendance, formatDrillScore, getRequirementsSnapshot } from "../../shared/attendanceValidation.js";
 import { extractScoreFromImage } from "../services/mlStub.js";
 import { getMySubmissions } from "../services/apiService.js";
-import { deleteDailyLog, deleteScreenshot, getSubmissionForPlayerDate, saveDailyLog, saveScreenshot, saveSubmissionData } from "../services/storageService.js";
+import { deleteDailyLog, deleteScreenshot, getScreenshot, getSubmissionForPlayerDate, saveDailyLog, saveScreenshot, saveSubmissionData } from "../services/storageService.js";
 import * as socketService from "../services/socketService.js";
+import ImageDropzone from "./ImageDropzone.jsx";
 import SubmissionCalendar from "./SubmissionCalendar.jsx";
 
 const fallbackTargets = { dm: { matchesRequired: 2, placementLimit: 5 }, range: { roundsRequired: 3, minScore: 25 } };
@@ -182,7 +183,20 @@ export default function PlayerUploadForm({ profile }) {
   };
 
   const handleScreenshot = async (type, index, file) => {
-    if (!file) return;
+    if (!file) {
+      const previousKey = screenshots[type][index];
+      if (previousKey) await deleteScreenshot(previousKey).catch(() => {});
+      setScreenshots((current) => ({
+        ...current,
+        [type]: current[type].map((key, itemIndex) => itemIndex === index ? null : key),
+      }));
+      setFileInputKeys((current) => ({
+        ...current,
+        [type]: current[type].map((key, itemIndex) => itemIndex === index ? key + 1 : key),
+      }));
+      setMessage("Screenshot removed. Add a new proof before submitting.");
+      return;
+    }
     const uuid = crypto.randomUUID();
     const previousKey = screenshots[type][index];
     try {
@@ -200,8 +214,11 @@ export default function PlayerUploadForm({ profile }) {
       setMessage("Screenshot uploaded securely.");
     } catch {
       setMessage("Screenshot upload failed. Check the server storage configuration and try again.");
+      throw new Error("Screenshot upload failed");
     }
   };
+
+  const loadScreenshotPreview = useCallback(async (screenshotKey) => (await getScreenshot(screenshotKey))?.blob || null, []);
 
   const beginRetake = (type, index) => {
     const field = type === "dm" ? "placements" : "scores";
@@ -356,7 +373,14 @@ export default function PlayerUploadForm({ profile }) {
             const locked = isDrillLocked("dm", index);
             return <div className={`game-entry drill-entry${submittedDrill?.needsResubmit ? " is-failed" : submittedDrill ? " is-passed" : ""}`} key={index}>
               <label>MATCH {String(index + 1).padStart(2, "0")}<input type="number" min="1" value={value} readOnly={locked} onChange={(event) => updateArray("placements", index, event.target.value)} /></label>
-              <label>MATCH {String(index + 1).padStart(2, "0")} SCREENSHOT<input key={`dm-file-${index}-${fileInputKeys.dm[index]}`} type="file" accept="image/*" disabled={locked} onChange={(event) => handleScreenshot("dm", index, event.target.files[0])} /></label>
+              <div className="screenshot-field"><span>MATCH {String(index + 1).padStart(2, "0")} SCREENSHOT</span><ImageDropzone
+                value={screenshots.dm[index]}
+                resetKey={fileInputKeys.dm[index]}
+                disabled={locked}
+                label={`Deathmatch ${index + 1} screenshot`}
+                loadPreview={loadScreenshotPreview}
+                onChange={(file) => handleScreenshot("dm", index, file)}
+              /></div>
               {renderDrillState("dm", index)}
             </div>;
           })}
@@ -369,7 +393,14 @@ export default function PlayerUploadForm({ profile }) {
             const locked = isDrillLocked("range", index);
             return <div className={`game-entry drill-entry${submittedDrill?.needsResubmit ? " is-failed" : submittedDrill ? " is-passed" : ""}`} key={index}>
               <label>ROUND {String(index + 1).padStart(2, "0")}<input type="number" min="0" max="30" value={value} readOnly={locked} onChange={(event) => updateArray("scores", index, event.target.value)} /></label>
-              <label>ROUND {String(index + 1).padStart(2, "0")} SCREENSHOT<input key={`range-file-${index}-${fileInputKeys.range[index]}`} type="file" accept="image/*" disabled={locked} onChange={(event) => handleScreenshot("range", index, event.target.files[0])} /></label>
+              <div className="screenshot-field"><span>ROUND {String(index + 1).padStart(2, "0")} SCREENSHOT</span><ImageDropzone
+                value={screenshots.range[index]}
+                resetKey={fileInputKeys.range[index]}
+                disabled={locked}
+                label={`Range round ${index + 1} screenshot`}
+                loadPreview={loadScreenshotPreview}
+                onChange={(file) => handleScreenshot("range", index, file)}
+              /></div>
               {renderDrillState("range", index)}
             </div>;
           })}
