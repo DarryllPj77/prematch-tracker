@@ -469,7 +469,7 @@
 }
 
 .calendar-dot-missed {
-  background: rgba(236, 232, 225, .18);
+  background: rgba(236, 232, 225, .48);
 }
 
 .feed {
@@ -547,6 +547,37 @@
   border-color: rgba(255, 70, 85, .7);
   outline: none;
   background: rgba(255, 70, 85, .055);
+}
+
+.submission.submission-missed {
+  border-color: rgba(129, 144, 157, .24);
+  border-bottom-color: rgba(129, 144, 157, .42);
+  background: linear-gradient(90deg, rgba(129, 144, 157, .08), rgba(255, 70, 85, .025));
+  cursor: default;
+}
+
+.submission.submission-missed:hover {
+  border-color: rgba(129, 144, 157, .42);
+  background: linear-gradient(90deg, rgba(129, 144, 157, .1), rgba(255, 70, 85, .04));
+}
+
+.submission .missed-status {
+  border: 1px solid rgba(255, 70, 85, .7);
+  color: #c9c5c1;
+  background: rgba(255, 70, 85, .12);
+  letter-spacing: .08em;
+}
+
+.submission-missed .shot-empty {
+  border-style: dashed;
+  color: rgba(236, 232, 225, .42);
+}
+
+.submission-missed-note {
+  align-self: center;
+  color: var(--muted);
+  font-size: .5rem;
+  letter-spacing: .08em;
 }
 
 .submission-actions {

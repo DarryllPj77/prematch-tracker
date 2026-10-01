@@ -7,7 +7,7 @@ function toDateKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-export default function ManagerAttendanceCalendar({ logs, selectedPlayer, selectedDate, onSelectDate }) {
+export default function ManagerAttendanceCalendar({ logs, selectedPlayer, selectedDate, attendanceStartDate, onSelectDate }) {
   const today = useMemo(() => new Date(), []);
   const todayKey = toDateKey(today);
   const [month, setMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
@@ -52,7 +52,11 @@ export default function ManagerAttendanceCalendar({ logs, selectedPlayer, select
         const hasPassed = dayLogs.some((log) => log.passed);
         const hasFailed = dayLogs.some((log) => !log.passed);
         const isFuture = dateKey > todayKey;
-        const isMissed = dateKey < todayKey && dayLogs.length === 0;
+        const isMissed = Boolean(selectedPlayer)
+          && Boolean(attendanceStartDate)
+          && dateKey >= attendanceStartDate
+          && dateKey < todayKey
+          && dayLogs.length === 0;
 
         return <button
           type="button"
@@ -60,13 +64,16 @@ export default function ManagerAttendanceCalendar({ logs, selectedPlayer, select
           key={dateKey}
           disabled={isFuture}
           onClick={() => onSelectDate(selectedDate === dateKey ? "" : dateKey)}
-          aria-label={`${date.toLocaleDateString()}, ${dayLogs.length} submission${dayLogs.length === 1 ? "" : "s"}`}
+          aria-label={isMissed
+            ? `${date.toLocaleDateString()}, missed`
+            : `${date.toLocaleDateString()}, ${dayLogs.length} submission${dayLogs.length === 1 ? "" : "s"}`}
           style={{ animationDelay: `${index * 12}ms` }}
         >
           <span>{date.getDate()}</span>
           <i className="manager-calendar-dots" aria-hidden="true">
             {hasPassed && <b className="calendar-dot-pass" />}
             {hasFailed && <b className="calendar-dot-fail" />}
+            {isMissed && <b className="calendar-dot-missed" />}
           </i>
         </button>;
       })}

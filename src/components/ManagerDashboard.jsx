@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { evaluateAttendance, formatDrillScore } from "../../shared/attendanceValidation.js";
 import * as socketService from "../services/socketService.js";
 import { deleteDailyLog } from "../services/storageService.js";
+import { buildPlayerAttendanceTimeline, getPlayerAttendanceStartDate } from "../utils/attendanceTimeline.js";
 import ManagerAttendanceCalendar from "./ManagerAttendanceCalendar.jsx";
 import ScreenshotModal from "./ScreenshotModal.jsx";
 import ScreenshotPreview from "./ScreenshotPreview.jsx";
@@ -117,6 +118,7 @@ export default function ManagerDashboard({ profile }) {
         .map((player) => ({
           id: player?.id,
           name: String(player?.name || player?.username || "").trim(),
+          createdAt: player?.createdAt,
         }))
         .filter((player) => player.name));
     };
@@ -165,11 +167,23 @@ export default function ManagerDashboard({ profile }) {
     return [...players.values()].sort((left, right) => left.name.localeCompare(right.name));
   }, [registeredPlayers, submissions, onlinePlayers]);
 
-  const filteredLogs = useMemo(() => submissions.filter((submission) => {
-    const matchesPlayer = !selectedPlayer || submission.playerName.toLowerCase() === selectedPlayer.toLowerCase();
-    const matchesDate = !selectedDate || submission.date === selectedDate;
-    return matchesPlayer && matchesDate;
-  }), [submissions, selectedPlayer, selectedDate]);
+  const selectedPlayerRecord = useMemo(() => selectedPlayer
+    ? registeredPlayers.find((player) => player.name.toLowerCase() === selectedPlayer.toLowerCase()) || { name: selectedPlayer }
+    : null, [registeredPlayers, selectedPlayer]);
+
+  const attendanceStartDate = useMemo(() => selectedPlayerRecord
+    ? getPlayerAttendanceStartDate(selectedPlayerRecord, submissions)
+    : "", [selectedPlayerRecord, submissions]);
+
+  const filteredLogs = useMemo(() => {
+    const timeline = selectedPlayerRecord
+      ? buildPlayerAttendanceTimeline(submissions, selectedPlayerRecord)
+      : submissions;
+    return timeline.filter((submission) => {
+      const matchesDate = !selectedDate || submission.date === selectedDate;
+      return matchesDate;
+    });
+  }, [submissions, selectedPlayerRecord, selectedDate]);
 
   const selectedSubmission = submissions.find((submission) => submission.id === selectedSubmissionId);
   const selectedAttendance = selectedSubmission
@@ -306,7 +320,13 @@ export default function ManagerDashboard({ profile }) {
           {rosterError && <div className="roster-error" role="alert">{rosterError}</div>}
         </section>
 
-        <ManagerAttendanceCalendar logs={submissions} selectedPlayer={selectedPlayer} selectedDate={selectedDate} onSelectDate={selectDate} />
+        <ManagerAttendanceCalendar
+          logs={submissions}
+          selectedPlayer={selectedPlayer}
+          selectedDate={selectedDate}
+          attendanceStartDate={attendanceStartDate}
+          onSelectDate={selectDate}
+        />
       </aside>
 
       <main className="feed">
@@ -355,7 +375,17 @@ export default function ManagerDashboard({ profile }) {
         </section>}
 
         {filteredLogs.length === 0 && <div className="empty-state">No submissions match the active player and date filters.</div>}
-        {filteredLogs.map((submission, index) => <article
+        {filteredLogs.map((submission, index) => submission.isMissed ? <article
+          className="submission submission-missed"
+          key={submission.id}
+          style={{ animationDelay: `${index * 35}ms` }}
+        >
+          <div><strong>{submission.playerName}</strong><small>{submission.date}</small></div>
+          <div className="result-lines">DM -- / --<br />RANGE -- / --</div>
+          <span className="status missed-status">MISSED</span>
+          <div className="shot shot-empty">NO SUBMISSION</div>
+          <div className="submission-actions submission-missed-note">NO CHECK-IN</div>
+        </article> : <article
           className={`submission${selectedSubmissionId === submission.id ? " is-selected" : ""}`}
           key={submission.id}
           role="button"
