@@ -40,13 +40,6 @@ export default function ManagerAttendanceCalendar({ logs, roster = [], selectedP
     return stats;
   }, { passed: 0, failed: 0, missed: 0 });
 
-  const getAggregatedDotClass = (stats) => {
-    if (stats.failed > 0) return "calendar-dot-fail";
-    if (stats.passed > 0) return "calendar-dot-pass";
-    if (stats.missed > 0) return "calendar-dot-missed";
-    return "";
-  };
-
   return <section className="manager-calendar cut-corner" aria-label="Attendance calendar">
     <div className="manager-calendar-head">
       <button type="button" onClick={() => changeMonth(-1)} aria-label="Previous month">&#8249;</button>
@@ -70,7 +63,6 @@ export default function ManagerAttendanceCalendar({ logs, roster = [], selectedP
         const isFuture = dateKey > todayKey;
         const showTeamStats = !selectedPlayer && !isFuture;
         const teamStats = showTeamStats ? getDailyTeamStats(dateKey) : null;
-        const aggregatedDotClass = teamStats ? getAggregatedDotClass(teamStats) : "";
         const isMissed = Boolean(selectedPlayer)
           && Boolean(attendanceStartDate)
           && dateKey >= attendanceStartDate
@@ -94,8 +86,10 @@ export default function ManagerAttendanceCalendar({ logs, roster = [], selectedP
             style={{ animationDelay: `${index * 12}ms` }}
           >
             <span>{date.getDate()}</span>
-            <i className="manager-calendar-dots" aria-hidden="true">
-              {showTeamStats && aggregatedDotClass && <b className={aggregatedDotClass} />}
+            <i className={`manager-calendar-dots${showTeamStats ? " is-team" : ""}`} aria-hidden="true">
+              {showTeamStats && teamStats.passed > 0 && <b className="calendar-dot-pass" />}
+              {showTeamStats && teamStats.failed > 0 && <b className="calendar-dot-fail" />}
+              {showTeamStats && teamStats.missed > 0 && <b className="calendar-dot-missed" />}
               {selectedPlayer && hasPassed && <b className="calendar-dot-pass" />}
               {selectedPlayer && hasFailed && <b className="calendar-dot-fail" />}
               {isMissed && <b className="calendar-dot-missed" />}

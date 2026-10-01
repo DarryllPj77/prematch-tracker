@@ -455,6 +455,14 @@
   gap: 2px;
 }
 
+.manager-calendar-dots.is-team {
+  right: auto;
+  left: 50%;
+  justify-content: center;
+  gap: .2rem;
+  transform: translateX(-50%);
+}
+
 .manager-calendar-dots b,
 .manager-calendar-legend i {
   display: block;
