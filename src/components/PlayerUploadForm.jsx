@@ -372,7 +372,7 @@ export default function PlayerUploadForm({ profile }) {
             const submittedDrill = getSubmittedDrill("dm", index);
             const locked = isDrillLocked("dm", index);
             return <div className={`game-entry drill-entry${submittedDrill?.needsResubmit ? " is-failed" : submittedDrill ? " is-passed" : ""}`} key={index}>
-              <label>MATCH {String(index + 1).padStart(2, "0")}<input type="number" min="1" value={value} readOnly={locked} onChange={(event) => updateArray("placements", index, event.target.value)} /></label>
+              <label>MATCH {String(index + 1).padStart(2, "0")}<input className="drill-score-input" type="number" min="1" value={value} readOnly={locked} onChange={(event) => updateArray("placements", index, event.target.value)} /></label>
               <div className="screenshot-field"><span>MATCH {String(index + 1).padStart(2, "0")} SCREENSHOT</span><ImageDropzone
                 value={screenshots.dm[index]}
                 resetKey={fileInputKeys.dm[index]}
@@ -392,7 +392,7 @@ export default function PlayerUploadForm({ profile }) {
             const submittedDrill = getSubmittedDrill("range", index);
             const locked = isDrillLocked("range", index);
             return <div className={`game-entry drill-entry${submittedDrill?.needsResubmit ? " is-failed" : submittedDrill ? " is-passed" : ""}`} key={index}>
-              <label>ROUND {String(index + 1).padStart(2, "0")}<input type="number" min="0" max="30" value={value} readOnly={locked} onChange={(event) => updateArray("scores", index, event.target.value)} /></label>
+              <label>ROUND {String(index + 1).padStart(2, "0")}<input className="drill-score-input" type="number" min="0" max="30" value={value} readOnly={locked} onChange={(event) => updateArray("scores", index, event.target.value)} /></label>
               <div className="screenshot-field"><span>ROUND {String(index + 1).padStart(2, "0")} SCREENSHOT</span><ImageDropzone
                 value={screenshots.range[index]}
                 resetKey={fileInputKeys.range[index]}
