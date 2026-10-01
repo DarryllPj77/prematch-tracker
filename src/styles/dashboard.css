@@ -385,9 +385,19 @@
   text-align: center;
 }
 
-.manager-calendar-day,
+.manager-calendar-cell,
 .manager-calendar-blank {
   aspect-ratio: 1;
+}
+
+.manager-calendar-cell {
+  position: relative;
+  min-width: 0;
+}
+
+.manager-calendar-cell:hover,
+.manager-calendar-cell:focus-within {
+  z-index: 51;
 }
 
 .manager-calendar-day {
@@ -404,6 +414,8 @@
   font-size: .57rem;
   cursor: pointer;
   animation: calendar-fade-in .28s ease-out both;
+  width: 100%;
+  height: 100%;
 }
 
 .manager-calendar-day.is-missed {
@@ -470,6 +482,80 @@
 
 .calendar-dot-missed {
   background: rgba(236, 232, 225, .48);
+}
+
+.manager-calendar-tooltip {
+  position: absolute;
+  z-index: 50;
+  bottom: calc(100% + .45rem);
+  left: 50%;
+  display: grid;
+  gap: .3rem;
+  min-width: 8.5rem;
+  border: 1px solid rgba(236, 232, 225, .2);
+  padding: .6rem;
+  color: var(--muted);
+  background: rgba(6, 12, 18, .98);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .55), inset 2px 0 var(--red);
+  font-family: 'Space Mono', monospace;
+  font-size: .52rem;
+  letter-spacing: .06em;
+  line-height: 1.35;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, 4px);
+  transition: opacity .16s ease, transform .16s ease, visibility .16s ease;
+}
+
+.manager-calendar-cell:nth-child(7n + 1) .manager-calendar-tooltip {
+  left: 0;
+  transform: translate(0, 4px);
+}
+
+.manager-calendar-cell:nth-child(7n) .manager-calendar-tooltip {
+  right: 0;
+  left: auto;
+  transform: translate(0, 4px);
+}
+
+.manager-calendar-cell:hover .manager-calendar-tooltip,
+.manager-calendar-cell:focus-within .manager-calendar-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+
+.manager-calendar-cell:nth-child(7n + 1):hover .manager-calendar-tooltip,
+.manager-calendar-cell:nth-child(7n + 1):focus-within .manager-calendar-tooltip,
+.manager-calendar-cell:nth-child(7n):hover .manager-calendar-tooltip,
+.manager-calendar-cell:nth-child(7n):focus-within .manager-calendar-tooltip {
+  transform: translate(0, 0);
+}
+
+.manager-calendar-tooltip strong {
+  padding-bottom: .35rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  font-size: .58rem;
+}
+
+.manager-calendar-tooltip span {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.manager-calendar-tooltip span:nth-of-type(1) b {
+  color: #85f3a1;
+}
+
+.manager-calendar-tooltip span:nth-of-type(2) b {
+  color: var(--red);
+}
+
+.manager-calendar-tooltip span:nth-of-type(3) b {
+  color: rgba(236, 232, 225, .62);
 }
 
 .feed {

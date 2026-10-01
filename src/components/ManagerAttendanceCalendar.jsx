@@ -7,7 +7,7 @@ function toDateKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-export default function ManagerAttendanceCalendar({ logs, selectedPlayer, selectedDate, attendanceStartDate, onSelectDate }) {
+export default function ManagerAttendanceCalendar({ logs, roster = [], selectedPlayer, selectedDate, attendanceStartDate, onSelectDate }) {
   const today = useMemo(() => new Date(), []);
   const todayKey = toDateKey(today);
   const [month, setMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
@@ -31,6 +31,22 @@ export default function ManagerAttendanceCalendar({ logs, selectedPlayer, select
     setMonth((current) => new Date(current.getFullYear(), current.getMonth() + amount, 1));
   };
 
+  const getDailyTeamStats = (dateKey) => roster.reduce((stats, player) => {
+    const submission = (logsByDate.get(dateKey) || [])
+      .find((log) => log.playerName.toLowerCase() === player.name.toLowerCase());
+    if (!submission) stats.missed += 1;
+    else if (submission.passed) stats.passed += 1;
+    else stats.failed += 1;
+    return stats;
+  }, { passed: 0, failed: 0, missed: 0 });
+
+  const getAggregatedDotClass = (stats) => {
+    if (stats.missed > 0) return "calendar-dot-missed";
+    if (stats.failed > 0) return "calendar-dot-fail";
+    if (stats.passed > 0) return "calendar-dot-pass";
+    return "";
+  };
+
   return <section className="manager-calendar cut-corner" aria-label="Attendance calendar">
     <div className="manager-calendar-head">
       <button type="button" onClick={() => changeMonth(-1)} aria-label="Previous month">&#8249;</button>
@@ -52,30 +68,46 @@ export default function ManagerAttendanceCalendar({ logs, selectedPlayer, select
         const hasPassed = dayLogs.some((log) => log.passed);
         const hasFailed = dayLogs.some((log) => !log.passed);
         const isFuture = dateKey > todayKey;
+        const showTeamStats = !selectedPlayer && !isFuture;
+        const teamStats = showTeamStats ? getDailyTeamStats(dateKey) : null;
+        const aggregatedDotClass = teamStats ? getAggregatedDotClass(teamStats) : "";
         const isMissed = Boolean(selectedPlayer)
           && Boolean(attendanceStartDate)
           && dateKey >= attendanceStartDate
           && dateKey < todayKey
           && dayLogs.length === 0;
 
-        return <button
-          type="button"
-          className={`manager-calendar-day${dateKey === todayKey ? " is-today" : ""}${isMissed ? " is-missed" : ""}${selectedDate === dateKey ? " is-selected" : ""}`}
-          key={dateKey}
-          disabled={isFuture}
-          onClick={() => onSelectDate(selectedDate === dateKey ? "" : dateKey)}
-          aria-label={isMissed
-            ? `${date.toLocaleDateString()}, missed`
-            : `${date.toLocaleDateString()}, ${dayLogs.length} submission${dayLogs.length === 1 ? "" : "s"}`}
-          style={{ animationDelay: `${index * 12}ms` }}
-        >
-          <span>{date.getDate()}</span>
-          <i className="manager-calendar-dots" aria-hidden="true">
-            {hasPassed && <b className="calendar-dot-pass" />}
-            {hasFailed && <b className="calendar-dot-fail" />}
-            {isMissed && <b className="calendar-dot-missed" />}
-          </i>
-        </button>;
+        const tooltipId = `team-attendance-${dateKey}`;
+
+        return <div className="manager-calendar-cell" key={dateKey}>
+          <button
+            type="button"
+            className={`manager-calendar-day${dateKey === todayKey ? " is-today" : ""}${isMissed ? " is-missed" : ""}${selectedDate === dateKey ? " is-selected" : ""}`}
+            disabled={isFuture}
+            onClick={() => onSelectDate(selectedDate === dateKey ? "" : dateKey)}
+            aria-describedby={showTeamStats ? tooltipId : undefined}
+            aria-label={showTeamStats
+              ? `${date.toLocaleDateString()}, Passed ${teamStats.passed}, Failed ${teamStats.failed}, Missed ${teamStats.missed}`
+              : isMissed
+                ? `${date.toLocaleDateString()}, missed`
+                : `${date.toLocaleDateString()}, ${dayLogs.length} submission${dayLogs.length === 1 ? "" : "s"}`}
+            style={{ animationDelay: `${index * 12}ms` }}
+          >
+            <span>{date.getDate()}</span>
+            <i className="manager-calendar-dots" aria-hidden="true">
+              {showTeamStats && aggregatedDotClass && <b className={aggregatedDotClass} />}
+              {selectedPlayer && hasPassed && <b className="calendar-dot-pass" />}
+              {selectedPlayer && hasFailed && <b className="calendar-dot-fail" />}
+              {isMissed && <b className="calendar-dot-missed" />}
+            </i>
+          </button>
+          {showTeamStats && <div className="manager-calendar-tooltip" id={tooltipId} role="tooltip">
+            <strong>TEAM ATTENDANCE</strong>
+            <span>PASSED <b>{teamStats.passed}</b></span>
+            <span>FAILED <b>{teamStats.failed}</b></span>
+            <span>MISSED <b>{teamStats.missed}</b></span>
+          </div>}
+        </div>;
       })}
     </div>
     <div className="manager-calendar-legend">

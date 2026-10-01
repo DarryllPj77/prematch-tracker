@@ -322,6 +322,7 @@ export default function ManagerDashboard({ profile }) {
 
         <ManagerAttendanceCalendar
           logs={submissions}
+          roster={roster}
           selectedPlayer={selectedPlayer}
           selectedDate={selectedDate}
           attendanceStartDate={attendanceStartDate}
