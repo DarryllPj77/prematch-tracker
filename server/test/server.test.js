@@ -22,6 +22,7 @@ function emitWithAck(socket, event, payload) {
 describe("database-backed authentication", () => {
   test("registers hashed users, verifies PINs, and protects manager registration", async () => {
     const users = new Map();
+    const teams = new Map();
     let nextId = 1;
     const repository = {
       async findUserByUsername(username) {
@@ -33,6 +34,9 @@ describe("database-backed authentication", () => {
       async findManagerByTeamCode(teamCode) {
         return [...users.values()].find((user) => user.role === "manager" && user.team_code === teamCode) || null;
       },
+      async findTeamByCode(teamCode) {
+        return teams.get(teamCode) || null;
+      },
       async assignPlayerToTeam(userId, teamCode) {
         const user = [...users.values()].find((item) => item.id === userId && item.role === "player" && !item.team_code);
         if (!user) return null;
@@ -41,6 +45,18 @@ describe("database-backed authentication", () => {
       },
       async createUser({ username, pinHash, role, teamCode, teamName }) {
         const user = { id: nextId++, username, pin_hash: pinHash, role, team_code: teamCode, team_name: role === "manager" ? teamName : null };
+        users.set(username.toLowerCase(), user);
+        return user;
+      },
+      async createManagerWithNewTeam({ username, pinHash, teamCode, teamName }) {
+        if (teams.has(teamCode)) {
+          const error = new Error("Duplicate team code");
+          error.code = "23505";
+          error.constraint = "teams_pkey";
+          throw error;
+        }
+        teams.set(teamCode, { team_code: teamCode, team_name: teamName });
+        const user = { id: nextId++, username, pin_hash: pinHash, role: "manager", team_code: teamCode, team_name: teamName };
         users.set(username.toLowerCase(), user);
         return user;
       },
@@ -57,9 +73,14 @@ describe("database-backed authentication", () => {
       managerSignupCode: "manager-only",
     });
 
-    const manager = await auth.register({ username: "Coach", pin: "4321", role: "manager", managerCode: "manager-only", teamName: "Paper Rex" });
+    const manager = await auth.register({ username: "Coach", pin: "4321", role: "manager", managerCode: "manager-only", intent: "create", teamName: "Paper Rex" });
     assert.match(manager.teamCode, /^[A-Z0-9]{4}$/);
     assert.equal(manager.teamName, "Paper Rex");
+
+    const coManager = await auth.register({ username: "Assistant", pin: "2468", role: "manager", managerCode: "manager-only", intent: "join", teamCode: manager.teamCode });
+    assert.equal(coManager.role, "manager");
+    assert.equal(coManager.teamCode, manager.teamCode);
+    assert.equal(coManager.teamName, "Paper Rex");
 
     const player = await auth.register({ username: "Momo", pin: "1234", role: "player", teamCode: manager.teamCode });
     assert.equal(player.role, "player");
@@ -92,6 +113,11 @@ describe("database-backed authentication", () => {
     );
 
     await assert.rejects(
+      auth.register({ username: "Lost Coach", pin: "1111", role: "manager", managerCode: "manager-only", intent: "join", teamCode: "NOPE" }),
+      (error) => error.code === "INVALID_TEAM_CODE" && error.message === "Invalid Team Code",
+    );
+
+    await assert.rejects(
       auth.register({ username: "Boss", pin: "4321", role: "manager", managerCode: "wrong" }),
       (error) => error.code === "INVALID_MANAGER_CODE",
     );
@@ -113,6 +139,7 @@ describe("persistent Socket.io workflow", () => {
   let httpServer;
   let ioServer;
   let manager;
+  let coManager;
   let otherManager;
   let refreshedManager;
   let player;
@@ -183,6 +210,7 @@ describe("persistent Socket.io workflow", () => {
 
   after(async () => {
     manager?.disconnect();
+    coManager?.disconnect();
     otherManager?.disconnect();
     refreshedManager?.disconnect();
     player?.disconnect();
@@ -199,6 +227,12 @@ describe("persistent Socket.io workflow", () => {
     assert.deepEqual((await historyPromise).logs, []);
     assert.deepEqual((await rosterPromise).players.map((item) => item.name), ["Momo"]);
 
+    coManager = createClient(baseUrl, { autoConnect: false, auth: { profile: { id: 5, username: "Assistant", role: "manager", teamCode: "K9X2" } } });
+    const coManagerRosterPromise = once(coManager, "manager:rosterSnapshot");
+    coManager.connect();
+    await once(coManager, "connect");
+    assert.deepEqual((await coManagerRosterPromise).players.map((item) => item.name), ["Momo"]);
+
     otherManager = createClient(baseUrl, { autoConnect: false, auth: { profile: { id: 3, username: "Other Coach", role: "manager", teamCode: "R4V4" } } });
     const otherRosterPromise = once(otherManager, "manager:rosterSnapshot");
     otherManager.connect();
@@ -207,9 +241,11 @@ describe("persistent Socket.io workflow", () => {
 
     player = createClient(baseUrl, { autoConnect: false, auth: { profile: { id: 2, username: "Momo", role: "player", teamCode: "K9X2" } } });
     const onlinePromise = once(manager, "manager:playersOnline");
+    const coManagerOnlinePromise = once(coManager, "manager:playersOnline");
     player.connect();
     await once(player, "connect");
     assert.deepEqual(await onlinePromise, ["Momo"]);
+    assert.deepEqual(await coManagerOnlinePromise, ["Momo"]);
 
     otherPlayer = createClient(baseUrl, { autoConnect: false, auth: { profile: { id: 4, username: "Rival", role: "player", teamCode: "R4V4" } } });
     const otherOnlinePromise = once(otherManager, "manager:playersOnline");
@@ -226,6 +262,7 @@ describe("persistent Socket.io workflow", () => {
     assert.equal((await repository.getTargets("R4V4")).dm.matchesRequired, 2);
 
     const incomingPromise = once(manager, "manager:newSubmission");
+    const coManagerIncomingPromise = once(coManager, "manager:newSubmission");
     const submissionResponse = await emitWithAck(player, "player:submitCompletion", {
       date: "2026-09-29",
       dmResults: [3, 2, 1, 3, 2],
@@ -238,6 +275,7 @@ describe("persistent Socket.io workflow", () => {
     assert.equal(submissionResponse.ok, true);
     assert.equal(submissionResponse.submission.passed, true);
     assert.equal((await incomingPromise).submissionId, "momo:2026-09-29");
+    assert.equal((await coManagerIncomingPromise).submissionId, "momo:2026-09-29");
     assert.equal((await repository.getSubmissions({ userId: 2 })).length, 1);
 
     let leakedSubmission = false;
@@ -269,8 +307,9 @@ describe("persistent Socket.io workflow", () => {
     player.disconnect();
     assert.deepEqual(await offlinePromise, []);
 
+    coManager.disconnect();
     manager.disconnect();
-    refreshedManager = createClient(baseUrl, { autoConnect: false, auth: { profile: { id: 5, username: "Coach", role: "manager", teamCode: "K9X2" } } });
+    refreshedManager = createClient(baseUrl, { autoConnect: false, auth: { profile: { id: 6, username: "Coach", role: "manager", teamCode: "K9X2" } } });
     const refreshedRosterPromise = once(refreshedManager, "manager:rosterSnapshot");
     const refreshedPresencePromise = once(refreshedManager, "manager:playersOnline");
     refreshedManager.connect();

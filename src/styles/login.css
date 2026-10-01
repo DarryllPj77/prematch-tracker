@@ -3,7 +3,8 @@
   display: grid;
   place-items: center;
   min-height: 100dvh;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: clamp(1rem, 4vw, 4rem);
   background:
     linear-gradient(115deg, rgba(15, 25, 35, .98), rgba(15, 25, 35, .8)),
@@ -167,6 +168,64 @@
 }
 
 .role-selector button.is-selected span {
+  color: var(--red);
+}
+
+.manager-intent-selector {
+  grid-template-columns: 1fr 1fr;
+  gap: .5rem;
+  border: 1px solid rgba(255, 70, 85, .28);
+  padding: .7rem;
+  background: rgba(255, 70, 85, .035);
+}
+
+.manager-intent-selector legend {
+  padding: 0 .35rem;
+  color: var(--muted);
+  font-family: 'Space Mono', monospace;
+  font-size: .58rem;
+  letter-spacing: .08em;
+}
+
+.manager-intent-selector button {
+  display: grid;
+  gap: .25rem;
+  min-height: 58px;
+  border: 1px solid var(--line);
+  padding: .6rem;
+  clip-path: none;
+  color: var(--ink);
+  background: #0b141d;
+  text-align: left;
+  cursor: pointer;
+}
+
+.manager-intent-selector button span {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+
+.manager-intent-selector button small {
+  color: var(--muted);
+  font-size: .4rem;
+  line-height: 1.45;
+}
+
+.manager-intent-selector button:hover,
+.manager-intent-selector button:focus-visible,
+.manager-intent-selector button.is-selected {
+  border-color: var(--red);
+  outline: none;
+  background: rgba(255, 70, 85, .1);
+}
+
+.manager-intent-selector button.is-selected {
+  box-shadow: inset 3px 0 var(--red);
+}
+
+.manager-intent-selector button.is-selected span {
   color: var(--red);
 }
 
@@ -376,7 +435,8 @@
 }
 
 @media (max-width: 460px) {
-  .role-selector {
+  .role-selector,
+  .manager-intent-selector {
     grid-template-columns: 1fr;
   }
 

@@ -38,9 +38,15 @@ export function createAuthService({ repository, jwtSecret, managerSignupCode, au
     throw new Error("JWT_SECRET must contain at least 32 characters.");
   }
 
-  const getTeamName = async (teamCode) => {
+  const findTeam = async (teamCode) => {
+    if (repository.findTeamByCode) return repository.findTeamByCode(teamCode);
     const manager = await repository.findManagerByTeamCode(teamCode);
-    const teamName = String(manager?.team_name || manager?.teamName || "").trim();
+    return manager ? { team_code: teamCode, team_name: manager.team_name || manager.teamName } : null;
+  };
+
+  const getTeamName = async (teamCode) => {
+    const team = await findTeam(teamCode);
+    const teamName = String(team?.team_name || team?.teamName || "").trim();
     if (!teamName) {
       throw createAuthError("This team does not have a Premier Team Name.", "TEAM_ASSIGNMENT_REQUIRED", 403);
     }
@@ -87,21 +93,31 @@ export function createAuthService({ repository, jwtSecret, managerSignupCode, au
   };
 
   return {
-    async register({ username, pin, role, managerCode, teamCode, teamName }) {
+    async register({ username, pin, role, managerCode, teamCode, teamName, intent }) {
       const credentials = validateCredentials({ username, pin });
       const normalizedRole = role === "manager" ? "manager" : role === "player" ? "player" : "";
       if (!normalizedRole) throw createAuthError("A valid role is required.", "INVALID_ROLE");
       if (normalizedRole === "manager" && (!managerSignupCode || managerCode !== managerSignupCode)) {
         throw createAuthError("The manager registration code is invalid.", "INVALID_MANAGER_CODE", 403);
       }
-      const requestedTeamName = normalizedRole === "manager" ? validateTeamName(teamName) : null;
-
+      const managerIntent = normalizedRole === "manager"
+        ? intent === "join" ? "join" : "create"
+        : null;
       const requestedTeamCode = normalizeTeamCode(teamCode);
-      if (normalizedRole === "player") {
-        const manager = isValidTeamCode(requestedTeamCode)
-          ? await repository.findManagerByTeamCode(requestedTeamCode)
+      let requestedTeamName = null;
+      if (normalizedRole === "manager" && managerIntent === "create") {
+        requestedTeamName = validateTeamName(teamName);
+      }
+
+      if (normalizedRole === "player" || (normalizedRole === "manager" && managerIntent === "join")) {
+        const team = isValidTeamCode(requestedTeamCode)
+          ? await findTeam(requestedTeamCode)
           : null;
-        if (!manager) throw createAuthError("Invalid Team Code", "INVALID_TEAM_CODE");
+        if (!team) throw createAuthError("Invalid Team Code", "INVALID_TEAM_CODE");
+        if (normalizedRole === "manager") {
+          requestedTeamName = String(team.team_name || team.teamName || "").trim();
+          if (!requestedTeamName) throw createAuthError("Invalid Team Code", "INVALID_TEAM_CODE");
+        }
       }
 
       const existing = await repository.findUserByUsername(credentials.username);
@@ -116,20 +132,28 @@ export function createAuthService({ repository, jwtSecret, managerSignupCode, au
       }
 
       const pinHash = await bcrypt.hash(credentials.pin, 12);
-      const attempts = normalizedRole === "manager" ? 32 : 1;
+      const isCreatingManager = normalizedRole === "manager" && managerIntent === "create";
+      const attempts = isCreatingManager ? 32 : 1;
       for (let attempt = 0; attempt < attempts; attempt += 1) {
         try {
-          const assignedTeamCode = normalizedRole === "manager" ? generateTeamCode() : requestedTeamCode;
-          const user = await repository.createUser({
-            username: credentials.username,
-            pinHash,
-            role: normalizedRole,
-            teamCode: assignedTeamCode,
-            teamName: requestedTeamName,
-          });
+          const assignedTeamCode = isCreatingManager ? generateTeamCode() : requestedTeamCode;
+          const user = isCreatingManager && repository.createManagerWithNewTeam
+            ? await repository.createManagerWithNewTeam({
+              username: credentials.username,
+              pinHash,
+              teamCode: assignedTeamCode,
+              teamName: requestedTeamName,
+            })
+            : await repository.createUser({
+              username: credentials.username,
+              pinHash,
+              role: normalizedRole,
+              teamCode: assignedTeamCode,
+              teamName: requestedTeamName,
+            });
           return issueSession(user);
         } catch (error) {
-          const teamCodeCollision = error?.code === "23505" && error?.constraint === "users_manager_team_code_key";
+          const teamCodeCollision = error?.code === "23505" && ["teams_pkey", "teams_team_code_key", "users_manager_team_code_key"].includes(error?.constraint);
           if (teamCodeCollision && attempt + 1 < attempts) continue;
           if (error?.code === "23505") throw createAuthError("Callsign already registered.", "USER_EXISTS", 409);
           throw error;

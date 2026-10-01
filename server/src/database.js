@@ -75,7 +75,7 @@ export class PostgresRepository {
 
   async ensureManagerTeamCodes() {
     const managers = await this.pool.query(
-      `SELECT id
+      `SELECT id, username, team_name
        FROM users
        WHERE role = 'manager' AND team_code IS NULL
        ORDER BY id`,
@@ -83,19 +83,35 @@ export class PostgresRepository {
 
     for (const manager of managers.rows) {
       let assigned = false;
-      for (let attempt = 0; attempt < 32 && !assigned; attempt += 1) {
-        try {
-          const result = await this.pool.query(
-            `UPDATE users
-             SET team_code = $1
-             WHERE id = $2 AND role = 'manager' AND team_code IS NULL
-             RETURNING id`,
-            [generateTeamCode(), manager.id],
-          );
-          assigned = result.rowCount === 1;
-        } catch (error) {
-          if (error?.code !== "23505") throw error;
+      const client = await this.pool.connect();
+      try {
+        for (let attempt = 0; attempt < 32 && !assigned; attempt += 1) {
+          try {
+            const teamCode = generateTeamCode();
+            const teamName = String(manager.team_name || `${manager.username}'s Team`).trim().slice(0, 64);
+            await client.query("BEGIN");
+            await client.query(
+              `INSERT INTO teams (team_code, team_name)
+               VALUES ($1, $2)`,
+              [teamCode, teamName],
+            );
+            const result = await client.query(
+              `UPDATE users
+               SET team_code = $1, team_name = $2
+               WHERE id = $3 AND role = 'manager' AND team_code IS NULL
+               RETURNING id`,
+              [teamCode, teamName, manager.id],
+            );
+            if (result.rowCount !== 1) throw new Error(`Manager ${manager.id} was assigned concurrently.`);
+            await client.query("COMMIT");
+            assigned = true;
+          } catch (error) {
+            await client.query("ROLLBACK");
+            if (error?.code !== "23505") throw error;
+          }
         }
+      } finally {
+        client.release();
       }
       if (!assigned) throw new Error(`Could not generate a unique team code for manager ${manager.id}.`);
     }
@@ -126,6 +142,41 @@ export class PostgresRepository {
       [username, normalizeUsername(username), pinHash, role, normalizeTeamCode(teamCode), role === "manager" ? String(teamName || "").trim() : null],
     );
     return result.rows[0];
+  }
+
+  async createManagerWithNewTeam({ username, pinHash, teamCode, teamName }) {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `INSERT INTO teams (team_code, team_name)
+         VALUES ($1, $2)`,
+        [normalizeTeamCode(teamCode), String(teamName || "").trim()],
+      );
+      const result = await client.query(
+        `INSERT INTO users (username, normalized_username, pin_hash, role, team_code, team_name)
+         VALUES ($1, $2, $3, 'manager', $4, $5)
+         RETURNING id, username, role, team_code, team_name, created_at`,
+        [username, normalizeUsername(username), pinHash, normalizeTeamCode(teamCode), String(teamName || "").trim()],
+      );
+      await client.query("COMMIT");
+      return result.rows[0];
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async findTeamByCode(teamCode) {
+    const result = await this.pool.query(
+      `SELECT team_code, team_name, created_at
+       FROM teams
+       WHERE team_code = $1`,
+      [normalizeTeamCode(teamCode)],
+    );
+    return result.rows[0] || null;
   }
 
   async findUserByUsername(username) {

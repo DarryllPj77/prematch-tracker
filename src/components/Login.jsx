@@ -11,6 +11,7 @@ export default function Login({ onLogin }) {
   const [managerCode, setManagerCode] = useState("");
   const [teamCode, setTeamCode] = useState("");
   const [teamName, setTeamName] = useState("");
+  const [isCreatingTeam, setIsCreatingTeam] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const isRegister = mode === "register";
@@ -23,6 +24,7 @@ export default function Login({ onLogin }) {
     setManagerCode("");
     setTeamCode("");
     setTeamName("");
+    setIsCreatingTeam(true);
     setError("");
   };
 
@@ -58,8 +60,12 @@ export default function Login({ onLogin }) {
       setError("ENTER A VALID 4-CHARACTER TEAM INVITE CODE.");
       return;
     }
-    if (isRegister && role === "manager" && (!teamName.trim() || teamName.trim().length > 64)) {
+    if (isRegister && role === "manager" && isCreatingTeam && (!teamName.trim() || teamName.trim().length > 64)) {
       setError("ENTER A PREMIER TEAM NAME BETWEEN 1 AND 64 CHARACTERS.");
+      return;
+    }
+    if (isRegister && role === "manager" && !isCreatingTeam && !/^[A-Z0-9]{4}$/.test(teamCode)) {
+      setError("ENTER A VALID 4-CHARACTER TEAM INVITE CODE.");
       return;
     }
 
@@ -69,7 +75,15 @@ export default function Login({ onLogin }) {
       const profile = isResettingPin
         ? await resetPin({ callsign: username, teamCode, newPin: pin })
         : isRegister
-          ? await registerUser({ username, pin, role, managerCode, teamCode, teamName })
+          ? await registerUser({
+            username,
+            pin,
+            role,
+            managerCode,
+            teamCode,
+            teamName,
+            intent: role === "manager" ? isCreatingTeam ? "create" : "join" : undefined,
+          })
           : await loginUser({ username, pin });
       onLogin(await saveLocalProfile(profile));
     } catch (submissionError) {
@@ -127,14 +141,25 @@ export default function Login({ onLogin }) {
           <button className={role === "player" ? "is-selected" : ""} type="button" aria-pressed={role === "player"} onClick={() => setRole("player")}>
             <span>PLAYER</span><small>SUBMIT AND TRACK WARM-UP PROOF</small>
           </button>
-          <button className={role === "manager" ? "is-selected" : ""} type="button" aria-pressed={role === "manager"} onClick={() => setRole("manager")}>
+          <button className={role === "manager" ? "is-selected" : ""} type="button" aria-pressed={role === "manager"} onClick={() => { if (role !== "manager") setIsCreatingTeam(true); setRole("manager"); }}>
             <span>MANAGER</span><small>MONITOR ATTENDANCE AND TARGETS</small>
           </button>
         </fieldset>}
 
         {isRegister && role === "manager" && <>
+          <fieldset className="manager-intent-selector">
+            <legend>MANAGER TEAM SETUP</legend>
+            <button className={isCreatingTeam ? "is-selected" : ""} type="button" aria-pressed={isCreatingTeam} onClick={() => { setIsCreatingTeam(true); setError(""); }}>
+              <span>CREATE NEW TEAM</span><small>GENERATE A NEW INVITE CODE</small>
+            </button>
+            <button className={!isCreatingTeam ? "is-selected" : ""} type="button" aria-pressed={!isCreatingTeam} onClick={() => { setIsCreatingTeam(false); setError(""); }}>
+              <span>JOIN EXISTING TEAM</span><small>USE AN ACTIVE TEAM CODE</small>
+            </button>
+          </fieldset>
           <label htmlFor="manager-registration-code">MANAGER REGISTRATION CODE<input id="manager-registration-code" name="managerCode" type="password" autoComplete="off" value={managerCode} onChange={(event) => setManagerCode(event.target.value)} placeholder="Enter deployment manager code" /></label>
-          <label htmlFor="premier-team-name">PREMIER TEAM NAME<input id="premier-team-name" name="teamName" type="text" autoComplete="organization" maxLength="64" value={teamName} onChange={(event) => setTeamName(event.target.value)} placeholder="e.g. Paper Rex" required /></label>
+          {isCreatingTeam
+            ? <label htmlFor="premier-team-name">PREMIER TEAM NAME<input id="premier-team-name" name="teamName" type="text" autoComplete="organization" maxLength="64" value={teamName} onChange={(event) => setTeamName(event.target.value)} placeholder="e.g. Paper Rex" required /></label>
+            : <label htmlFor="manager-team-code">TEAM INVITE CODE (4-DIGIT)<input id="manager-team-code" name="teamCode" type="text" autoComplete="off" inputMode="text" maxLength="4" pattern="[A-Za-z0-9]{4}" value={teamCode} onChange={(event) => setTeamCode(event.target.value.replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 4))} placeholder="e.g. K9X2" required /></label>}
         </>}
         {isRegister && role === "player" && <label>TEAM INVITE CODE<input type="text" autoComplete="off" inputMode="text" maxLength="4" pattern="[A-Za-z0-9]{4}" value={teamCode} onChange={(event) => setTeamCode(event.target.value.replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 4))} placeholder="e.g. K9X2" /></label>}
 

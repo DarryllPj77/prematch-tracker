@@ -36,7 +36,25 @@ EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
 
-CREATE UNIQUE INDEX IF NOT EXISTS users_manager_team_code_key
+CREATE TABLE IF NOT EXISTS teams (
+  team_code VARCHAR(4) PRIMARY KEY CHECK (team_code ~ '^[A-Z0-9]{4}$'),
+  team_name VARCHAR(64) NOT NULL CHECK (BTRIM(team_name) <> ''),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO teams (team_code, team_name)
+SELECT team_code, MIN(team_name)
+FROM users
+WHERE role = 'manager'
+  AND team_code IS NOT NULL
+  AND team_name IS NOT NULL
+  AND BTRIM(team_name) <> ''
+GROUP BY team_code
+ON CONFLICT (team_code) DO NOTHING;
+
+DROP INDEX IF EXISTS users_manager_team_code_key;
+
+CREATE INDEX IF NOT EXISTS users_manager_team_code_idx
   ON users (team_code)
   WHERE role = 'manager' AND team_code IS NOT NULL;
 
